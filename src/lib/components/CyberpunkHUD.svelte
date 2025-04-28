@@ -1,11 +1,106 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { fly, fade } from 'svelte/transition';
+  import { fly, fade, scale } from 'svelte/transition';
+  import { quintOut } from 'svelte/easing';
   import { triggerShockwave } from './GridBackground.svelte';
   import Asteroids from './Asteroids.svelte';
   
   export let toggleAbout;
   export let toggleRules;
+  
+  // Wallet connection state
+  let walletConnected = false;
+  let connectedWalletAddress = '';
+  let showWalletModal = false;
+  let connectingWallet = false;
+  
+  // Wallet list
+  const walletOptions = [
+    { id: 'metamask', name: 'MetaMask', icon: '🦊' },
+    { id: 'walletconnect', name: 'WalletConnect', icon: '🔗' },
+    { id: 'coinbase', name: 'Coinbase Wallet', icon: '💰' },
+    { id: 'trustwallet', name: 'Trust Wallet', icon: '🔐' }
+  ];
+  
+  // Toggle wallet modal
+  function toggleWalletModal() {
+    showWalletModal = !showWalletModal;
+  }
+  
+  // Connect wallet function
+  async function connectWallet(walletType) {
+    connectingWallet = true;
+    
+    try {
+      // Simulate wallet connection delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Mock connection - in production, this would integrate with actual wallet providers
+      if (walletType === 'metamask') {
+        // Check if MetaMask is installed
+        if (typeof window.ethereum !== 'undefined') {
+          try {
+            // Request account access
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            handleSuccessfulConnection(accounts[0]);
+          } catch (error) {
+            console.error('User denied account access', error);
+          }
+        } else {
+          window.open('https://metamask.io/download/', '_blank');
+        }
+      } else {
+        // Mock connection for other wallets
+        const mockAddress = '0x' + Array(40).fill(0).map(() => 
+          Math.floor(Math.random() * 16).toString(16)
+        ).join('');
+        handleSuccessfulConnection(mockAddress);
+      }
+    } catch (error) {
+      console.error('Error connecting wallet:', error);
+    } finally {
+      connectingWallet = false;
+      showWalletModal = false;
+    }
+  }
+  
+  function handleSuccessfulConnection(address) {
+    walletConnected = true;
+    connectedWalletAddress = address;
+    // Add animation effect
+    triggerShockwave();
+  }
+  
+  function disconnectWallet() {
+    walletConnected = false;
+    connectedWalletAddress = '';
+  }
+  
+  function shortenAddress(address) {
+    if (!address) return '';
+    return address.slice(0, 6) + '...' + address.slice(-4);
+  }
+  
+  // Additional functions for new buttons
+  function openTelegram() {
+    window.open('https://t.me/band4band', '_blank');
+  }
+  
+  function openTwitter() {
+    window.open('https://twitter.com/band4bandwtf', '_blank');
+  }
+  
+  function openWhitepaper() {
+    window.open('/whitepaper.pdf', '_blank');
+  }
+  
+  function openDocumentation() {
+    window.open('/docs', '_blank');
+  }
+  
+  // Mock data for block information and participants
+  let currentBlock = 16842103;
+  let participants = 4291;
   
   let time = new Date();
   let timeInterval;
@@ -213,6 +308,13 @@
     triggerShockwave();
   }
 
+  // Update the block number every few seconds
+  function updateBlockNumber() {
+    setInterval(() => {
+      currentBlock += 1;
+    }, 12000);
+  }
+
   onMount(() => {
     // Update time display
     timeInterval = setInterval(() => {
@@ -226,6 +328,7 @@
     initHexGrid();
     triggerGlitch();
     bootupSequence();
+    updateBlockNumber();
     
     // Handle resize
     window.addEventListener('resize', () => {
@@ -291,28 +394,37 @@
     </div>
   {:else}
     <!-- Main HUD layout -->
-    <!-- Upper left corner (time & date) -->
+    <!-- Upper left corner (time, date & participants) -->
     {#if hudElements.upperLeft.visible}
       <div class="hud-element upper-left" in:fly={{ y: -20, duration: 800 }}>
         <div class="hud-box">
-          <div class="hud-time">{formattedTime}</div>
-          <div class="hud-date">{formattedDate}</div>
+         
           <div class="hud-status">[ SYSTEM ONLINE ]</div>
+          <div class="hud-participants">PARTICIPANTS: {participants.toLocaleString()}</div>
         </div>
       </div>
     {/if}
     
-    <!-- Upper right corner (CPU/MEM stats) -->
+    <!-- Upper right corner (CPU/MEM stats & block number) -->
     {#if hudElements.upperRight.visible}
-      <div class="hud-element upper-right" in:fly={{ y: -20, duration: 800 }}>
+      <div class="hud-element upper-right" in:fly={{ y: -50, duration: 800 }}>
         <div class="hud-box">
-          <div class="hud-graph">
-            <div class="graph-bar" style="height: {30 + Math.random() * 60}%"></div>
-            <div class="graph-bar" style="height: {30 + Math.random() * 60}%"></div>
-            <div class="graph-bar" style="height: {30 + Math.random() * 60}%"></div>
-            <div class="graph-bar" style="height: {30 + Math.random() * 60}%"></div>
-          </div>
-          <div class="hud-stats">NET:SECURE</div>
+    
+        
+          <!-- Connect Wallet Button -->
+          {#if !walletConnected}
+            <button class="wallet-button" on:click={toggleWalletModal}>
+              <div class="button-glow"></div>
+              <span class="wallet-button-text">CONNECT WALLET</span>
+              <div class="button-brackets"></div>
+            </button>
+          {:else}
+            <button class="wallet-button connected" on:click={disconnectWallet}>
+              <div class="button-glow"></div>
+              <span class="wallet-button-text">{shortenAddress(connectedWalletAddress)}</span>
+              <div class="button-brackets"></div>
+            </button>
+          {/if}
         </div>
       </div>
     {/if}
@@ -325,6 +437,7 @@
             <img src="/B4B.png" alt="Band 4 Band Logo" />
           </a>
           <div class="logo-glow"></div>
+          <a href="/whitepaper.pdf" class="whitepaper-link" on:click|preventDefault={openWhitepaper}>WHITEPAPER</a>
         </div>
       </div>
     {/if}
@@ -333,29 +446,20 @@
     {#if hudElements.gameContent.visible}
       <div class="hud-element game-content" in:fade={{ duration: 800, delay: 200 }}>
         <div class="game-frame">
-          <!-- Frame decoration elements -->
-          <div class="frame-corner top-left"></div>
-          <div class="frame-corner top-right"></div>
-          <div class="frame-corner bottom-left"></div>
-          <div class="frame-corner bottom-right"></div>
-          
-          <div class="frame-edge top"></div>
-          <div class="frame-edge right"></div>
-          <div class="frame-edge bottom"></div>
-          <div class="frame-edge left"></div>
-          
-          <!-- Header bar with game info -->
-          <div class="game-header">
-            <div class="game-status">
-              STATUS: {gameContentReady ? 'ACTIVE' : 'LOADING'} 
-              <span class="status-indicator"></span>
-            </div>
-            <div class="game-title">BAND 4 BAND CONTROL INTERFACE</div>
-            <div class="game-version">v1.0.23</div>
-          </div>
-          
+    
           <!-- Game content -->
           <div class="game-interface">
+                <!-- Timer display -->
+                <div class="timer-container">
+                    <div class="timer-label">TIME REMAINING</div>
+                    <div class="timer-display">
+                      <span class="time-unit">{formatTimeUnit(timeRemaining.hours)}</span>
+                      <span class="time-separator">:</span>
+                      <span class="time-unit">{formatTimeUnit(timeRemaining.minutes)}</span>
+                      <span class="time-separator">:</span>
+                      <span class="time-unit">{formatTimeUnit(timeRemaining.seconds)}</span>
+                    </div>
+                  </div>
             <!-- Prize pool display -->
             <div class="prize-container">
               <div class="prize-label">PRIZE POOL</div>
@@ -363,40 +467,30 @@
               <div class="prize-subtitle">CURRENT LEADER: {lastBuyer}</div>
             </div>
             
-            <!-- Timer display -->
-            <div class="timer-container">
-              <div class="timer-label">TIME REMAINING</div>
-              <div class="timer-display">
-                <span class="time-unit">{formatTimeUnit(timeRemaining.hours)}</span>
-                <span class="time-separator">:</span>
-                <span class="time-unit">{formatTimeUnit(timeRemaining.minutes)}</span>
-                <span class="time-separator">:</span>
-                <span class="time-unit">{formatTimeUnit(timeRemaining.seconds)}</span>
+
+                 
+            <!-- Player stats -->
+            <div class="player-stats">
+                <div class="stat-item">
+                  <div class="stat-label">YOUR TOKENS</div>
+                  <div class="stat-value">{playerTokens}</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-label">NETWORK</div>
+                  <div class="stat-value">ETHEREUM</div>
+                </div>
               </div>
-            </div>
-            
             <!-- Main button -->
             <div class="button-container">
               <button class="mega-button" on:click={clickButton}>
                 <div class="button-pulse"></div>
                 <div class="button-content">
-                  <span class="button-primary-text">Claim $10,000,000</span>
+                  <span class="button-primary-text">Claim Your Bag</span>
                   <span class="button-secondary-text">CURRENT PRICE: {buttonPrice}</span>
                 </div>
               </button>
             </div>
-            
-            <!-- Player stats -->
-            <div class="player-stats">
-              <div class="stat-item">
-                <div class="stat-label">YOUR TOKENS</div>
-                <div class="stat-value">{playerTokens}</div>
-              </div>
-              <div class="stat-item">
-                <div class="stat-label">NETWORK</div>
-                <div class="stat-value">ETHEREUM</div>
-              </div>
-            </div>
+
           </div>
         </div>
       </div>
@@ -471,6 +565,19 @@
         </div>
       </div>
     {/if}
+        
+    <!-- Featured on logos section -->
+    {#if hudElements.navOptions.visible}
+      <div class="hud-element featured-logos" in:fade={{ duration: 1000, delay: 1500 }}>
+        <div class="featured-title">AS SEEN ON</div>
+        <div class="logos-container">
+          <div class="logo-item">YAHOO FINANCE</div>
+          <div class="logo-item">VICE</div>
+          <div class="logo-item">COINDESK</div>
+          <div class="logo-item">COINTELEGRAPH</div>
+        </div>
+      </div>
+    {/if}
     
     <!-- Navigation options -->
     {#if hudElements.navOptions.visible}
@@ -486,9 +593,21 @@
           <span class="button-text">RULES</span>
           <div class="button-brackets"></div>
         </div>
+        
+        <div class="nav-button" on:click={openTelegram}>
+          <div class="button-glow"></div>
+          <span class="button-text">TELEGRAM</span>
+          <div class="button-brackets"></div>
+        </div>
+        
+        <div class="nav-button" on:click={openTwitter}>
+          <div class="button-glow"></div>
+          <span class="button-text">TWITTER</span>
+          <div class="button-brackets"></div>
+        </div>
       </div>
     {/if}
-    
+
     <!-- Lower left decorative element -->
 
     
@@ -497,12 +616,33 @@
   {/if}
 </div>
 
-<!-- Add animation control button -->
-<div class="animation-control">
-  <button class="hud-button" on:click={toggleAnimations}>
-    {animationsPaused ? 'RESUME' : 'PAUSE'} ANIMATIONS
-  </button>
-</div>
+<!-- Wallet Modal -->
+{#if showWalletModal}
+  <div class="modal-overlay" on:click={toggleWalletModal} transition:fade={{ duration: 200 }}>
+    <div class="wallet-modal" on:click|stopPropagation transition:scale={{ duration: 300, easing: quintOut, start: 0.8 }}>
+      <button class="close-button" on:click={toggleWalletModal}>×</button>
+      <h2>Connect Your Wallet</h2>
+      <div class="wallet-options">
+        {#each walletOptions as wallet}
+          <button 
+            class="wallet-option" 
+            on:click={() => connectWallet(wallet.id)} 
+            disabled={connectingWallet}
+          >
+            <span class="wallet-icon">{wallet.icon}</span>
+            <span class="wallet-name">{wallet.name}</span>
+          </button>
+        {/each}
+      </div>
+      {#if connectingWallet}
+        <div class="connecting-indicator">
+          <div class="loader"></div>
+          <span>Connecting...</span>
+        </div>
+      {/if}
+    </div>
+  </div>
+{/if}
 
 <style>
   .hud-container {
@@ -832,7 +972,7 @@
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 30px;
+    gap: 15px;
     justify-content: center;
   }
   
@@ -1161,17 +1301,19 @@
   /* Chatbox Styles */
   .chatbox {
     position: fixed;
-    right: 15px;
+    right: 20px;
     top: 100px;
     bottom: 100px;
-    width: 280px;
+    width: 260px;
     height: auto;
+    max-width: 20%;
   }
   
   .chatbox .panel {
     height: 100%;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
   
   /* Always show chat even when not expanded */
@@ -1269,18 +1411,15 @@
     flex-direction: column;
     justify-content: space-between;
     align-items: center;
-    height: calc(100% - 35px);
-    gap: 20px;
-    padding: 10px 0;
+    gap: 0px;
+    padding: 0px 0;
   }
   
   /* Prize Pool */
   .prize-container {
     text-align: center;
     width: 100%;
-    padding: 15px;
-    border: 1px solid rgba(0, 255, 255, 0.3);
-    background-color: rgba(0, 0, 50, 0.3);
+    padding: 10px;
     margin-bottom: 10px;
   }
   
@@ -1423,7 +1562,7 @@
   .player-stats {
     display: flex;
     justify-content: space-between;
-    width: 100%;
+    width: 50%;
     gap: 20px;
   }
   
@@ -1432,7 +1571,7 @@
     text-align: center;
     border: 1px solid rgba(0, 255, 255, 0.3);
     padding: 10px;
-    background-color: rgba(0, 0, 50, 0.3);
+
   }
   
   .stat-label {
@@ -1447,92 +1586,112 @@
     color: #00FFFF;
   }
   
-  /* Responsive styles */
-  @media (max-width: 1400px) {
-    .game-content {
-      width: calc(100% - 600px);
-    }
+  /* New styles for added features */
+  .hud-participants {
+    font-size: 14px;
+    color: #00FFFF;
+    margin-top: 8px;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
   }
   
-  @media (max-width: 1200px) {
-    .recent-buys, .chatbox {
-      width: 240px;
-    }
-    
-    .game-content {
-      width: calc(100% - 520px);
-    }
+  .hud-block {
+    font-size: 14px;
+    color: #00FFFF;
+    margin-top: 5px;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
+    text-align: right;
   }
   
-  @media (max-width: 1000px) {
-    .recent-buys, .chatbox {
-      width: 200px;
-    }
-    
-    .game-content {
-      width: calc(100% - 440px);
-    }
-    
-    .buy-address, .message-sender {
-      font-size: 12px;
-    }
-    
-    .buy-details, .message-time {
-      font-size: 10px;
-    }
+  .whitepaper-link {
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: #00FFFF;
+    text-decoration: none;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
+    padding: 3px 8px;
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    background-color: rgba(0, 0, 20, 0.5);
+    transition: all 0.3s ease;
   }
   
-  @media (max-width: 768px) {
-    .game-content {
-      width: calc(100% - 20px);
-      top: 80px;
-      height: calc(100% - 180px);
-    }
-    
-    .recent-buys, .chatbox {
-      top: initial;
-      position: fixed;
-      height: 200px;
-      width: calc(50% - 20px);
-      bottom: 100px;
-    }
-    
-    .recent-buys {
-      left: 10px;
-    }
-    
-    .chatbox {
-      right: 10px;
-    }
-    
-    .game-title {
-      font-size: 14px;
-    }
-    
-    .game-status, .game-version {
-      font-size: 10px;
-    }
-    
-    .prize-value {
-      font-size: 36px;
-    }
-    
-    .time-unit {
-      font-size: 24px;
-      min-width: 40px;
-    }
-    
-    .time-separator {
-      font-size: 24px;
-    }
-    
-    .button-primary-text {
-      font-size: 20px;
-    }
-    
-    .mega-button {
-      height: 100px;
-    }
+  .whitepaper-link:hover {
+    background-color: rgba(0, 255, 255, 0.2);
+    border-color: rgba(0, 255, 255, 0.6);
+  }
+  
+  .docs-link {
+    position: absolute;
+    top: -20px;
+    right: 0;
+  }
+  
+  .docs-link a {
+    font-size: 12px;
+    color: #00FFFF;
+    text-decoration: none;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
+    padding: 3px 8px;
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    background-color: rgba(0, 0, 20, 0.5);
+    transition: all 0.3s ease;
+  }
+  
+  .docs-link a:hover {
+    background-color: rgba(0, 255, 255, 0.2);
+    border-color: rgba(0, 255, 255, 0.6);
+  }
+  
+  .featured-logos {
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    padding: 10px 20px;
+    background-color: rgba(0, 0, 20, 0.5);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    border-radius: 5px;
+  }
+  
+  .featured-title {
+    font-size: 12px;
+    color: rgba(0, 255, 255, 0.7);
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+  }
+  
+  .logos-container {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  .logo-item {
+    font-size: 14px;
+    font-weight: bold;
+    color: #00FFFF;
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.7);
+    padding: 5px 10px;
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    background-color: rgba(0, 0, 20, 0.7);
+  }
+  
+  /* Animation control */
+  .animation-control {
+    position: fixed;
+    bottom: 15px;
+    right: 15px;
+    z-index: 15;
+    pointer-events: auto;
+  }
+  
+  /* Control asteroid animation state globally */
+  :global(:root) {
+    --animation-play-state: running;
   }
   
   /* Game Content Styles */
@@ -1548,12 +1707,12 @@
   
   .game-frame {
     width: 100%;
-    height: 100%;
+    height: 90%;
     position: relative;
-    border: 1px solid rgba(0, 255, 255, 0.3);
-    background-color: rgba(0, 0, 20, 0.3);
-    backdrop-filter: blur(2px);
+border-radius:12px;
+    backdrop-filter: blur(1px);
     padding: 20px;
+
     box-sizing: border-box;
   }
   
@@ -1656,18 +1815,317 @@
     font-size: 12px;
     opacity: 0.7;
   }
-  
-  /* Animation control */
-  .animation-control {
-    position: fixed;
-    bottom: 15px;
-    right: 15px;
-    z-index: 15;
-    pointer-events: auto;
+
+  /* Responsive styles */
+  @media (max-width: 1400px) {
+    .game-content {
+      width: calc(100% - 600px);
+    }
+    
+    .chatbox {
+      width: 240px;
+      max-width: 18%;
+    }
   }
   
-  /* Control asteroid animation state globally */
-  :global(:root) {
-    --animation-play-state: running;
+  @media (max-width: 1200px) {
+    .recent-buys, .chatbox {
+      width: 220px;
+    }
+    
+    .chatbox {
+      right: 15px;
+      max-width: 20%;
+    }
+    
+    .game-content {
+      width: calc(100% - 500px);
+    }
+  }
+  
+  @media (max-width: 1000px) {
+    .recent-buys, .chatbox {
+      width: 190px;
+    }
+    
+    .chatbox {
+      right: 10px;
+    }
+    
+    .game-content {
+      width: calc(100% - 420px);
+    }
+    
+    .buy-address, .message-sender {
+      font-size: 12px;
+    }
+    
+    .buy-details, .message-time {
+      font-size: 10px;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .game-content {
+      width: calc(100% - 20px);
+      top: 80px;
+      height: calc(100% - 180px);
+    }
+    
+    .recent-buys, .chatbox {
+      top: initial;
+      position: fixed;
+      height: 180px;
+      width: calc(50% - 15px);
+      bottom: 100px;
+      max-width: none;
+    }
+    
+    .recent-buys {
+      left: 10px;
+    }
+    
+    .chatbox {
+      right: 10px;
+    }
+    
+    .panel {
+      min-width: auto;
+    }
+    
+    .game-title {
+      font-size: 14px;
+    }
+    
+    .game-status, .game-version {
+      font-size: 10px;
+    }
+    
+    .prize-value {
+      font-size: 36px;
+    }
+    
+    .time-unit {
+      font-size: 24px;
+      min-width: 40px;
+    }
+    
+    .time-separator {
+      font-size: 24px;
+    }
+    
+    .button-primary-text {
+      font-size: 20px;
+    }
+    
+    .mega-button {
+      height: 100px;
+    }
+  }
+  
+  /* Wallet Button Styles */
+  .wallet-button {
+    position: relative;
+    width: 100%;
+    padding: 8px 16px;
+    margin-top: 10px;
+    background-color: rgba(0, 0, 20, 0.5);
+    border: none;
+    color: #00FFFF;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    letter-spacing: 1px;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    z-index: 2;
+  }
+  
+  .wallet-button-text {
+    position: relative;
+    z-index: 2;
+    font-weight: bold;
+    letter-spacing: 1px;
+  }
+  
+  .wallet-button .button-brackets:before,
+  .wallet-button .button-brackets:after {
+    content: "";
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border: 2px solid #00FFFF;
+    transition: all 0.3s ease;
+    z-index: 3;
+  }
+  
+  .wallet-button .button-brackets:before {
+    top: 4px;
+    left: 4px;
+    border-right: none;
+    border-bottom: none;
+  }
+  
+  .wallet-button .button-brackets:after {
+    bottom: 4px;
+    right: 4px;
+    border-left: none;
+    border-top: none;
+  }
+  
+  .wallet-button .button-glow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 255, 255, 0.1);
+    border: 1px solid rgba(0, 255, 255, 0.5);
+    transition: all 0.3s ease;
+    z-index: 1;
+  }
+  
+  .wallet-button:hover .button-glow {
+    background-color: rgba(0, 255, 255, 0.2);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+  }
+  
+  .wallet-button.connected .button-glow {
+    background-color: rgba(0, 255, 128, 0.2);
+    border-color: rgba(0, 255, 128, 0.6);
+  }
+  
+  .wallet-button.connected {
+    color: #00FF80;
+    text-shadow: 0 0 5px rgba(0, 255, 128, 0.7);
+  }
+  
+  /* Modal Styles */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 20, 0.8);
+    backdrop-filter: blur(5px);
+    z-index: 100;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .wallet-modal {
+    position: relative;
+    background-color: rgba(10, 20, 50, 0.9);
+    border: 2px solid #00FFFF;
+    border-radius: 10px;
+    padding: 30px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+  }
+  
+  .wallet-modal h2 {
+    color: #00FFFF;
+    text-align: center;
+    margin-bottom: 25px;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
+  }
+  
+  .wallet-options {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .wallet-option {
+    display: flex;
+    align-items: center;
+    background-color: rgba(0, 40, 70, 0.6);
+    border: 1px solid rgba(0, 255, 255, 0.4);
+    border-radius: 8px;
+    padding: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  .wallet-option:hover {
+    background-color: rgba(0, 60, 100, 0.6);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+    transform: translateY(-2px);
+  }
+  
+  .wallet-icon {
+    font-size: 24px;
+    margin-right: 15px;
+  }
+  
+  .wallet-name {
+    color: #00FFFF;
+    font-size: 16px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+  }
+  
+  .connecting-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+    padding: 12px;
+    color: #00FFFF;
+    background-color: rgba(0, 40, 70, 0.4);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 8px;
+  }
+  
+  .loader {
+    width: 22px;
+    height: 22px;
+    border: 2px solid rgba(0, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #00FFFF;
+    animation: spin 1s linear infinite;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+  }
+  
+  .connecting-indicator span {
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  .wallet-option:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  /* Mobile adjustments */
+  @media (max-width: 768px) {
+    .wallet-button {
+      padding: 8px 15px;
+      font-size: 12px;
+    }
+    
+    .wallet-options {
+      gap: 10px;
+    }
+    
+    .wallet-icon {
+      font-size: 20px;
+      margin-right: 10px;
+    }
+    
+    .wallet-name {
+      font-size: 14px;
+    }
   }
 </style> 
