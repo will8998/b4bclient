@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "outputDirectory": "build",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "sveltekit",
+  "public": false
+} 
