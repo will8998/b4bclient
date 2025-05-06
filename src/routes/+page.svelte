@@ -6,7 +6,7 @@
 
   function shortenAddress(_address) {
     return `${_address.substring(0, 6)}...${_address.slice(-4)}`
-  }
+  } 
 </script>
 
 <div class="game-content">

@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 
-config()
+config() 
 
 const app = express()
 app.disable('x-powered-by')
