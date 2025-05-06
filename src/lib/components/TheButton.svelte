@@ -35,7 +35,7 @@
 <button class="pushable" on:click={handleButtonClick}>
   <span class="shadow"></span>
   <span class="edge"></span>
-  <span class="front">
+  <span class="front"> 
     Claim $10,000,000
     <br>
     <span class="font-sm">Price: $2,000</span>
@@ -45,7 +45,7 @@
 <style>
   .font-sm {
     font-size: 14px;
-    opacity: 0.9;
+    opacity: 0.89;
   }
   
   .pushable {
