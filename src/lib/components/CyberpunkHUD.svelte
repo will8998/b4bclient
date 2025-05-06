@@ -8,6 +8,202 @@
   export let toggleAbout;
   export let toggleRules;
   
+  // First declaring the needed variables that were missing
+  // Anxiety mode toggle
+  let anxietyMode = false;
+  
+  // Audio elements
+  let bgMusic;
+  let clickSound;
+  let audioInitialized = false;
+  let audioContext;
+  
+  // All required game variables
+  let time = new Date();
+  let timeInterval;
+  let animationFrame;
+  let hexGrid;
+  let scanlineActive = true;
+  let glitchActive = false;
+  let glitchEnabled = false;
+  let bootupComplete = false;
+  let chatboxExpanded = false;
+  let chatInput = '';
+  let gameContentReady = false;
+  let asteroidCount = 100;
+  let asteroidColors = ['#00FFFF', '#00CCFF', '#00AAFF', '#0088FF'];
+  
+  // Mock data for block information and participants
+  let currentBlock = 16842103;
+  let participants = 4291;
+  
+  // Mock recent buys data (this would normally come from your backend)
+  let recentBuys = [
+    { address: '0x42f...3a7b', amount: '0.245 ETH', timestamp: Date.now() - 1000 * 60 * 2 },
+    { address: '0x76c...9e2d', amount: '0.12 ETH', timestamp: Date.now() - 1000 * 60 * 15 },
+    { address: '0x33a...7c8f', amount: '0.57 ETH', timestamp: Date.now() - 1000 * 60 * 32 },
+    { address: '0x91d...4e6a', amount: '0.31 ETH', timestamp: Date.now() - 1000 * 60 * 58 }
+  ];
+  
+  // Mock chat messages (this would normally come from your backend)
+  let chatMessages = [
+    { sender: 'SYSTEM', message: 'Welcome to Band 4 Band', timestamp: Date.now() - 1000 * 60 * 35 },
+    { sender: '0x42f...3a7b', message: 'Just bought in!', timestamp: Date.now() - 1000 * 60 * 30 },
+    { sender: '0x33a...7c8f', message: 'This project is going to moon 🚀', timestamp: Date.now() - 1000 * 60 * 25 },
+    { sender: '0x76c...9e2d', message: 'Who else is from Twitter?', timestamp: Date.now() - 1000 * 60 * 20 }
+  ];
+  
+  // Game state (would normally connect to blockchain)
+  let prizePool = "$10,000,000";
+  let timeRemaining = { hours: 23, minutes: 45, seconds: 12 };
+  let lastBuyer = "0x42f...3a7b";
+  let playerTokens = "0.0";
+  let buttonPrice = "$1,000";
+  let totalAmountSpent = "$0.00";
+  let consolationPrize = "$0.00";
+  let referralIncome = "$0.00";
+  let countdown;
+  
+  // Add animation control state
+  let animationsPaused = false;
+  
+  // Referral system
+  let showReferralModal = false;
+  let referralLink = 'https://band4band.com/?ref=' + Math.random().toString(36).substring(2, 10);
+  let referralPayout = "$500";
+  
+  // Mock data for referral leaderboard
+  let referralLeaderboard = [
+    { address: '0x76c...9e2d', earned: '$2,450' },
+    { address: '0x42f...3a7b', earned: '$1,890' },
+    { address: '0x33a...7c8f', earned: '$1,240' },
+    { address: '0x91d...4e6a', earned: '$950' },
+    { address: '0x67b...1d5c', earned: '$820' }
+  ];
+  
+  // HUD animation states
+  let hudElements = {
+    upperLeft: { visible: false, delay: 100 },
+    upperRight: { visible: false, delay: 300 },
+    lowerLeft: { visible: false, delay: 500 },
+    lowerRight: { visible: false, delay: 700 },
+    centerLogo: { visible: false, delay: 900 },
+    navOptions: { visible: false, delay: 1200 },
+    recentBuys: { visible: false, delay: 1400 },
+    chatbox: { visible: false, delay: 1600 },
+    gameContent: { visible: false, delay: 1800 }
+  };
+  
+  // Function to initialize audio after user interaction
+  function initializeAudio() {
+    if (audioInitialized) return;
+    
+    // Create audio context
+    try {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // Start playing background music
+      if (bgMusic) {
+        bgMusic.volume = 0.3; // Lower volume for background music
+        bgMusic.play().catch(err => console.log('Audio playback prevented by browser:', err));
+      }
+      
+      audioInitialized = true;
+    } catch (e) {
+      console.error('Web Audio API not supported:', e);
+    }
+  }
+  
+  // Function to play click sound
+  function playClickSound() {
+    if (!audioInitialized) {
+      initializeAudio();
+      return;
+    }
+    
+    if (clickSound) {
+      clickSound.currentTime = 0;
+      clickSound.volume = 0.5;
+      clickSound.play().catch(err => console.log('Click sound playback prevented:', err));
+    }
+  }
+  
+  // Function to switch background music
+  function switchBackgroundMusic(mode) {
+    if (!audioInitialized) return;
+    
+    if (bgMusic) {
+      // Fade out current music
+      const fadeInterval = setInterval(() => {
+        if (bgMusic.volume > 0.02) {
+          bgMusic.volume -= 0.02;
+        } else {
+          clearInterval(fadeInterval);
+          bgMusic.pause();
+          
+          // Change the source
+          bgMusic.src = mode === 'anxiety' ? '/audio/anxiety.mp3' : '/audio/calm.mp3';
+          
+          // Play new music with fade in
+          bgMusic.volume = 0;
+          bgMusic.play().then(() => {
+            const fadeInInterval = setInterval(() => {
+              if (bgMusic.volume < 0.28) {
+                bgMusic.volume += 0.02;
+              } else {
+                bgMusic.volume = 0.3;
+                clearInterval(fadeInInterval);
+              }
+            }, 100);
+          }).catch(err => console.log('Background music switch prevented:', err));
+        }
+      }, 100);
+    }
+  }
+  
+  // Anxiety mode toggle
+  function toggleAnxietyMode() {
+    anxietyMode = !anxietyMode;
+    
+    // Change asteroid colors based on mode
+    if (anxietyMode) {
+      asteroidColors = ['#FF0000', '#FF3333', '#FF6666', '#FF9999'];
+      asteroidCount = 150; // More asteroids in anxiety mode
+      switchBackgroundMusic('anxiety');
+    } else {
+      asteroidColors = ['#00FFFF', '#00CCFF', '#00AAFF', '#0088FF']; 
+      asteroidCount = 100; // Normal amount in standard mode
+      switchBackgroundMusic('calm');
+    }
+    
+    // Play click sound
+    playClickSound();
+    
+    // Trigger shockwave effect on mode change
+    triggerShockwave();
+  }
+  
+  // Mobile detection
+  let isMobile = false;
+  let touchStartY = 0;
+  let isScrolling = false;
+  let mobileChatVisible = false;
+  let mobileBuysVisible = false;
+  
+  // Handle mobile content toggle with sound
+  function toggleMobileContent(type) {
+    playClickSound();
+    if (type === 'chat') {
+      mobileChatVisible = !mobileChatVisible;
+      if (mobileChatVisible) mobileBuysVisible = false;
+    } else if (type === 'buys') {
+      mobileBuysVisible = !mobileBuysVisible;
+      if (mobileBuysVisible) mobileChatVisible = false;
+    }
+  }
+  
+  // The rest of the existing variables and functions
+  
   // Wallet connection state
   let walletConnected = false;
   let connectedWalletAddress = '';
@@ -22,13 +218,15 @@
     { id: 'trustwallet', name: 'Trust Wallet', icon: '🔐' }
   ];
   
-  // Toggle wallet modal
+  // Toggle wallet modal with sound
   function toggleWalletModal() {
+    playClickSound();
     showWalletModal = !showWalletModal;
   }
   
   // Connect wallet function
   async function connectWallet(walletType) {
+    playClickSound();
     connectingWallet = true;
     
     try {
@@ -72,6 +270,7 @@
   }
   
   function disconnectWallet() {
+    playClickSound();
     walletConnected = false;
     connectedWalletAddress = '';
   }
@@ -81,82 +280,36 @@
     return address.slice(0, 6) + '...' + address.slice(-4);
   }
   
-  // Additional functions for new buttons
+  // Additional functions for new buttons with sound
   function openTelegram() {
+    playClickSound();
     window.open('https://t.me/band4band', '_blank');
   }
   
   function openTwitter() {
+    playClickSound();
     window.open('https://twitter.com/band4bandwtf', '_blank');
   }
   
   function openWhitepaper() {
+    playClickSound();
     window.open('/whitepaper.pdf', '_blank');
   }
   
   function openDocumentation() {
+    playClickSound();
     window.open('/docs', '_blank');
   }
   
-  // Mock data for block information and participants
-  let currentBlock = 16842103;
-  let participants = 4291;
-  
-  let time = new Date();
-  let timeInterval;
-  let animationFrame;
-  let hexGrid;
-  let scanlineActive = true;
-  let glitchActive = false;
-  let glitchEnabled = false;
-  let bootupComplete = false;
-  let chatboxExpanded = false;
-  let chatInput = '';
-  let gameContentReady = false;
-  let asteroidCount = 100;
-  let asteroidColors = ['#00FFFF', '#00CCFF', '#00AAFF', '#0088FF'];
-  
-  // Mock recent buys data (this would normally come from your backend)
-  let recentBuys = [
-    { address: '0x42f...3a7b', amount: '0.245 ETH', timestamp: Date.now() - 1000 * 60 * 2 },
-    { address: '0x76c...9e2d', amount: '0.12 ETH', timestamp: Date.now() - 1000 * 60 * 15 },
-    { address: '0x33a...7c8f', amount: '0.57 ETH', timestamp: Date.now() - 1000 * 60 * 32 },
-    { address: '0x91d...4e6a', amount: '0.31 ETH', timestamp: Date.now() - 1000 * 60 * 58 }
-  ];
-  
-  // Mock chat messages (this would normally come from your backend)
-  let chatMessages = [
-    { sender: 'SYSTEM', message: 'Welcome to Band 4 Band', timestamp: Date.now() - 1000 * 60 * 35 },
-    { sender: '0x42f...3a7b', message: 'Just bought in!', timestamp: Date.now() - 1000 * 60 * 30 },
-    { sender: '0x33a...7c8f', message: 'This project is going to moon 🚀', timestamp: Date.now() - 1000 * 60 * 25 },
-    { sender: '0x76c...9e2d', message: 'Who else is from Twitter?', timestamp: Date.now() - 1000 * 60 * 20 }
-  ];
-  
-  // Game state (would normally connect to blockchain)
-  let prizePool = "$10,000,000";
-  let timeRemaining = { hours: 23, minutes: 45, seconds: 12 };
-  let lastBuyer = "0x42f...3a7b";
-  let playerTokens = "0.0";
-  let buttonPrice = "$1,000";
-  let countdown;
-  
-  // Add animation control state
-  let animationsPaused = false;
-  
-  // Function to toggle animation state
-  function toggleAnimations() {
-    animationsPaused = !animationsPaused;
-    document.documentElement.style.setProperty('--animation-play-state', 
-      animationsPaused ? 'paused' : 'running');
+  // Function to toggle referral modal with sound
+  function toggleReferralModal() {
+    playClickSound();
+    showReferralModal = !showReferralModal;
   }
   
-  // Function to toggle chatbox expanded state
-  function toggleChatbox() {
-    chatboxExpanded = !chatboxExpanded;
-  }
-  
-  // Function to send chat message (would connect to backend)
+  // Function to send chat message with sound
   function sendMessage() {
+    playClickSound();
     if (chatInput.trim()) {
       chatMessages = [...chatMessages, {
         sender: 'YOU',
@@ -167,6 +320,131 @@
     }
   }
   
+  // Function to toggle chatbox expanded state with sound
+  function toggleChatbox() {
+    playClickSound();
+    chatboxExpanded = !chatboxExpanded;
+  }
+  
+  // Click button function with sound
+  function clickButton() {
+    playClickSound();
+    // In a real implementation, this would trigger a blockchain transaction
+    lastBuyer = "YOU";
+    // Update prize pool with $ instead of ETH
+    prizePool = "$" + (parseFloat(prizePool.replace(/[^0-9.]/g, '')) + 1000).toFixed(2);
+    playerTokens = (parseFloat(playerTokens) + 0.05).toFixed(2);
+    
+    // Update total amount spent
+    totalAmountSpent = "$" + (parseFloat(totalAmountSpent.replace(/[^0-9.]/g, '')) + 1000).toFixed(2);
+    
+    // Update consolation prize (5% of spent amount)
+    consolationPrize = "$" + (parseFloat(totalAmountSpent.replace(/[^0-9.]/g, '')) * 0.05).toFixed(2);
+    
+    // Reset timer for demo purposes
+    timeRemaining = { hours: 23, minutes: 59, seconds: 59 };
+    
+    // Trigger shockwave effect
+    triggerShockwave();
+  }
+  
+  // Copy referral link with sound
+  function copyReferralLink() {
+    playClickSound();
+    navigator.clipboard.writeText(referralLink)
+      .then(() => {
+        // Show a temporary "Copied!" message
+        const copyButton = document.querySelector('.copy-button');
+        if (copyButton) {
+          const originalText = copyButton.textContent;
+          copyButton.textContent = 'Copied!';
+          setTimeout(() => {
+            copyButton.textContent = originalText;
+          }, 2000);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to copy: ', err);
+      });
+  }
+  
+  // Toggle animation state with sound
+  function toggleAnimations() {
+    playClickSound();
+    animationsPaused = !animationsPaused;
+    document.documentElement.style.setProperty('--animation-play-state', 
+      animationsPaused ? 'paused' : 'running');
+  }
+  
+  // Toggle glitch effect with sound
+  function toggleGlitch() {
+    playClickSound();
+    glitchEnabled = !glitchEnabled;
+    if (!glitchEnabled) {
+      glitchActive = false;
+    }
+  }
+  
+  onMount(() => {
+    // Update time display
+    timeInterval = setInterval(() => {
+      time = new Date();
+    }, 1000);
+    
+    // Game timer update
+    countdown = setInterval(updateTimer, 1000);
+    
+    // Initialize and animate
+    initHexGrid();
+    triggerGlitch();
+    bootupSequence();
+    updateBlockNumber();
+    simulateReferrals();
+    
+    // Check if mobile on load
+    checkMobile();
+    
+    // Handle resize
+    window.addEventListener('resize', () => {
+      initHexGrid();
+      checkMobile();
+    });
+    
+    // Add touch event listeners
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchmove', handleTouchMove, { passive: true });
+    document.addEventListener('touchend', handleTouchEnd, { passive: true });
+    
+    // Initialize audio on first user interaction
+    document.addEventListener('click', initializeAudio, { once: true });
+    document.addEventListener('touchstart', initializeAudio, { once: true });
+    
+    return () => {
+      clearInterval(timeInterval);
+      clearInterval(countdown);
+      cancelAnimationFrame(animationFrame);
+      window.removeEventListener('resize', initHexGrid);
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+      
+      // Stop all audio when component is destroyed
+      if (bgMusic) {
+        bgMusic.pause();
+        bgMusic.src = '';
+      }
+      
+      if (clickSound) {
+        clickSound.pause();
+        clickSound.src = '';
+      }
+      
+      // Remove event listeners
+      document.removeEventListener('click', initializeAudio);
+      document.removeEventListener('touchstart', initializeAudio);
+    };
+  });
+  
   // Format timestamp for display
   function formatTimestamp(timestamp) {
     const minutes = Math.floor((Date.now() - timestamp) / (1000 * 60));
@@ -176,27 +454,6 @@
     const hours = Math.floor(minutes / 60);
     if (hours === 1) return '1 hour ago';
     return `${hours} hours ago`;
-  }
-  
-  // HUD animation states
-  let hudElements = {
-    upperLeft: { visible: false, delay: 100 },
-    upperRight: { visible: false, delay: 300 },
-    lowerLeft: { visible: false, delay: 500 },
-    lowerRight: { visible: false, delay: 700 },
-    centerLogo: { visible: false, delay: 900 },
-    navOptions: { visible: false, delay: 1200 },
-    recentBuys: { visible: false, delay: 1400 },
-    chatbox: { visible: false, delay: 1600 },
-    gameContent: { visible: false, delay: 1800 }
-  };
-  
-  // Function to toggle glitch effect
-  function toggleGlitch() {
-    glitchEnabled = !glitchEnabled;
-    if (!glitchEnabled) {
-      glitchActive = false;
-    }
   }
   
   // Initialize hexagonal pattern in background
@@ -293,55 +550,31 @@
     timeRemaining = {...timeRemaining};
   }
   
-  // Function to simulate clicking the button (would connect to blockchain)
-  function clickButton() {
-    // In a real implementation, this would trigger a blockchain transaction
-    lastBuyer = "YOU";
-    // Update prize pool with $ instead of ETH
-    prizePool = "$" + (parseFloat(prizePool.replace(/[^0-9.]/g, '')) + 1000).toFixed(2);
-    playerTokens = (parseFloat(playerTokens) + 0.05).toFixed(2);
-    
-    // Reset timer for demo purposes
-    timeRemaining = { hours: 23, minutes: 59, seconds: 59 };
-    
-    // Trigger shockwave effect
-    triggerShockwave();
+  // Format time with leading zeros
+  function formatTimeUnit(unit) {
+    return unit.toString().padStart(2, '0');
   }
-
-  // Update the block number every few seconds
+  
+  // Update block number
   function updateBlockNumber() {
     setInterval(() => {
       currentBlock += 1;
     }, 12000);
   }
-
-  onMount(() => {
-    // Update time display
-    timeInterval = setInterval(() => {
-      time = new Date();
-    }, 1000);
-    
-    // Game timer update
-    countdown = setInterval(updateTimer, 1000);
-    
-    // Initialize and animate
-    initHexGrid();
-    triggerGlitch();
-    bootupSequence();
-    updateBlockNumber();
-    
-    // Handle resize
-    window.addEventListener('resize', () => {
-      initHexGrid();
-    });
-    
-    return () => {
-      clearInterval(timeInterval);
-      clearInterval(countdown);
-      cancelAnimationFrame(animationFrame);
-      window.removeEventListener('resize', initHexGrid);
-    };
-  });
+  
+  // Simulate referral income updates
+  function simulateReferrals() {
+    setInterval(() => {
+      // Simulate a new referral with a 30% chance
+      if (Math.random() < 0.3) {
+        // Random amount between $50-$200 for the referral
+        const referralAmount = Math.floor(Math.random() * 150) + 50;
+        referralIncome = "$" + (parseFloat(referralIncome.replace(/[^0-9.]/g, '')) + referralAmount).toFixed(2);
+      }
+    }, 30000); // Check every 30 seconds
+  }
+  
+  // Rest of the script remains the same...
   
   // Format time for display
   $: formattedTime = time.toLocaleTimeString('en-US', { 
@@ -357,14 +590,25 @@
     month: '2-digit',
     day: '2-digit'
   }).replace(/\//g, '.');
-  
-  // Format time with leading zeros
-  function formatTimeUnit(unit) {
-    return unit.toString().padStart(2, '0');
-  }
 </script>
 
-<div class="hud-container" class:glitch={glitchActive}>
+<div class="hud-container" class:glitch={glitchActive} class:anxiety-mode={anxietyMode} class:shake={anxietyMode}>
+  <!-- Audio elements -->
+  <audio bind:this={bgMusic} loop preload="auto" src="/audio/calm.mp3"></audio>
+  <audio bind:this={clickSound} preload="auto" src="/audio/click-sound.mp3"></audio>
+  
+  <!-- Anxiety mode toggle button -->
+  <div class="anxiety-toggle" in:fade={{ duration: 500, delay: 1000 }}>
+    <button 
+      class="anxiety-button" 
+      class:active={anxietyMode} 
+      on:click={toggleAnxietyMode}
+      title={anxietyMode ? "Switch to Normal Mode" : "Switch to Anxiety Mode"}
+    >
+      <div class="anxiety-icon">{anxietyMode ? '😰' : '😌'}</div>
+    </button>
+  </div>
+  
   <!-- Hexagonal grid background -->
   <div class="hex-grid" bind:this={hexGrid}></div>
   
@@ -399,8 +643,10 @@
       <div class="hud-element upper-left" in:fly={{ y: -20, duration: 800 }}>
         <div class="hud-box">
          
-          <div class="hud-status">[ SYSTEM ONLINE ]</div>
-          <div class="hud-participants">PARTICIPANTS: {participants.toLocaleString()}</div>
+          <div class="hud-stat">TOTAL AMOUNT SPENT: {totalAmountSpent}</div>
+          <div class="hud-stat">CONSOLATION PRIZE: {consolationPrize}</div>
+          <div class="hud-stat">REFERRAL INCOME: {referralIncome}</div>
+
         </div>
       </div>
     {/if}
@@ -424,6 +670,17 @@
               <span class="wallet-button-text">{shortenAddress(connectedWalletAddress)}</span>
               <div class="button-brackets"></div>
             </button>
+            
+            <!-- Referral section (visible when wallet is connected) -->
+            <div class="referral-section">
+              <div class="referral-payout">PAYOUT {referralPayout}</div>
+              <div class="referral-info">IF YOU REFER THE NEXT BUYER:</div>
+              <button class="referral-button" on:click={toggleReferralModal}>
+                <div class="button-glow"></div>
+                <span class="button-text">REFER FRIENDS</span>
+                <div class="button-brackets"></div>
+              </button>
+            </div>
           {/if}
         </div>
       </div>
@@ -449,6 +706,12 @@
     
           <!-- Game content -->
           <div class="game-interface">
+                <!-- Frame corner decorations -->
+                <div class="frame-corner top-left"></div>
+                <div class="frame-corner top-right"></div>
+                <div class="frame-corner bottom-left"></div>
+                <div class="frame-corner bottom-right"></div>
+                
                 <!-- Timer display -->
                 <div class="timer-container">
                     <div class="timer-label">TIME REMAINING</div>
@@ -644,6 +907,47 @@
   </div>
 {/if}
 
+<!-- Referral Modal -->
+{#if showReferralModal}
+  <div class="modal-overlay" on:click={toggleReferralModal} transition:fade={{ duration: 200 }}>
+    <div class="referral-modal" on:click|stopPropagation transition:scale={{ duration: 300, easing: quintOut, start: 0.8 }}>
+      <button class="close-button" on:click={toggleReferralModal}>×</button>
+      <h2>Your Referral Link</h2>
+      
+      <!-- Referral Link Section -->
+      <div class="referral-link-container">
+        <input type="text" readonly value={referralLink} class="referral-link-input" />
+        <button class="copy-button" on:click={copyReferralLink}>COPY LINK</button>
+      </div>
+      
+      <!-- Leaderboard Section -->
+      <div class="referral-leaderboard">
+        <h3>TOP REFERRERS</h3>
+        <div class="leaderboard-table">
+          <div class="leaderboard-header">
+            <div class="column">RANK</div>
+            <div class="column">ADDRESS</div>
+            <div class="column">EARNED</div>
+          </div>
+          {#each referralLeaderboard as referrer, index}
+            <div class="leaderboard-row">
+              <div class="column">#{index + 1}</div>
+              <div class="column">{referrer.address}</div>
+              <div class="column earned">{referrer.earned}</div>
+            </div>
+          {/each}
+        </div>
+      </div>
+      
+      <!-- Explanation Section -->
+      <div class="referral-explanation">
+        <p>Share your unique referral link with friends. When they use your link to join Band 4 Band and make a purchase, you'll earn a commission of their purchase amount.</p>
+        <p>Top referrers can earn additional bonuses and exclusive perks!</p>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .hud-container {
     position: fixed;
@@ -656,6 +960,192 @@
     font-family: 'Courier New', monospace;
     color: #00FFFF;
     overflow: hidden;
+    transition: color 0.5s ease;
+  }
+  
+  /* Anxiety mode styles */
+  .anxiety-mode {
+    color: #FF0000;
+  }
+  
+  .anxiety-mode .hud-box,
+  .anxiety-mode .button-glow,
+  .anxiety-mode .button-brackets:before,
+  .anxiety-mode .button-brackets:after,
+  .anxiety-mode .mega-button,
+  .anxiety-mode .time-unit,
+  .anxiety-mode .timer-container,
+  .anxiety-mode .prize-container,
+  .anxiety-mode .stat-item {
+    border-color: rgba(255, 0, 0, 0.5) !important;
+  }
+  
+  .anxiety-mode .hexagon {
+    background-color: rgba(255, 0, 0, 0.2);
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+  }
+  
+  .anxiety-mode .hexagon:before {
+    border-bottom: 8.5px solid rgba(255, 0, 0, 0.2);
+  }
+  
+  .anxiety-mode .hexagon:after {
+    border-top: 8.5px solid rgba(255, 0, 0, 0.2);
+  }
+  
+  .anxiety-mode .hex-grid::before {
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255, 0, 0, 0) 0px,
+      rgba(255, 0, 0, 0) 19px,
+      rgba(255, 0, 0, 0.2) 20px,
+      rgba(255, 0, 0, 0) 21px
+    );
+    animation: grid-slide-y 12s infinite linear; /* Faster in anxiety mode */
+  }
+  
+  .anxiety-mode .hex-grid::after {
+    background: repeating-linear-gradient(
+      to right,
+      rgba(255, 0, 0, 0) 0px,
+      rgba(255, 0, 0, 0) 19px,
+      rgba(255, 0, 0, 0.2) 20px,
+      rgba(255, 0, 0, 0) 21px
+    );
+    animation: grid-slide-x 12s infinite linear; /* Faster in anxiety mode */
+  }
+  
+  .anxiety-mode .frame-corner {
+    border-color: #FF0000;
+    box-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
+  }
+  
+  .anxiety-mode .prize-value,
+  .anxiety-mode .stat-value,
+  .anxiety-mode .time-unit,
+  .anxiety-mode .button-primary-text,
+  .anxiety-mode .button-text,
+  .anxiety-mode .panel-title,
+  .anxiety-mode .wallet-button-text,
+  .anxiety-mode .logo-item,
+  .anxiety-mode .button-secondary-text,
+  .anxiety-mode .timer-label,
+  .anxiety-mode .prize-label,
+  .anxiety-mode .prize-subtitle,
+  .anxiety-mode .stat-label,
+  .anxiety-mode .panel-control,
+  .anxiety-mode .featured-title,
+  .anxiety-mode .time-separator {
+    color: #FF0000;
+    text-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
+  }
+  
+  .anxiety-mode .button-pulse {
+    background: radial-gradient(
+      circle,
+      rgba(255, 0, 0, 0.5) 0%,
+      transparent 70%
+    );
+  }
+  
+  .anxiety-mode .pulse-dot {
+    background-color: #FF0000;
+  }
+
+  /* Anxiety mode button */
+  .anxiety-toggle {
+    position: fixed;
+    top: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 50;
+    pointer-events: auto;
+  }
+  
+  .anxiety-button {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 30, 0.7);
+    border: 1px solid rgba(0, 255, 255, 0.5);
+    color: #00FFFF;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    overflow: hidden;
+    padding: 0;
+  }
+  
+  .anxiety-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+  }
+  
+  .anxiety-button.active {
+    background-color: rgba(30, 0, 0, 0.7);
+    border-color: rgba(255, 0, 0, 0.5);
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+  }
+  
+  .anxiety-button.active:hover {
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.7);
+  }
+  
+  .anxiety-icon {
+    font-size: 18px;
+    transition: transform 0.3s ease;
+  }
+  
+  .anxiety-button:hover .anxiety-icon {
+    transform: scale(1.1);
+  }
+  
+  /* Shake animation for anxiety mode */
+  @keyframes shake {
+    0%, 100% { transform: translate(0, 0) rotate(0); }
+    10%, 90% { transform: translate(-1px, 0) rotate(-0.5deg); }
+    20%, 80% { transform: translate(1px, 1px) rotate(0.5deg); }
+    30%, 70% { transform: translate(-1px, -1px) rotate(-0.5deg); }
+    40%, 60% { transform: translate(1px, 0) rotate(0.5deg); }
+    50% { transform: translate(-1px, 1px) rotate(-0.5deg); }
+  }
+  
+  .shake {
+    animation: shake 0.5s infinite;
+    animation-timing-function: cubic-bezier(.36,.07,.19,.97);
+  }
+  
+  /* Mobile adjustments for anxiety button */
+  @media (max-width: 768px) {
+    .anxiety-toggle {
+      top: 10px;
+    }
+    
+    .anxiety-button {
+      width: 32px;
+      height: 32px;
+    }
+    
+    .anxiety-icon {
+      font-size: 16px;
+    }
+  }
+  
+  @media (max-width: 350px) {
+    .anxiety-toggle {
+      top: 6px;
+    }
+    
+    .anxiety-button {
+      width: 28px;
+      height: 28px;
+    }
+    
+    .anxiety-icon {
+      font-size: 14px;
+    }
   }
   
   /* Hex grid background */
@@ -797,7 +1287,7 @@
   
   .bootup-text {
     font-size: 24px;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     text-shadow: 0 0 10px #00FFFF;
     letter-spacing: 2px;
   }
@@ -807,7 +1297,7 @@
     height: 10px;
     background-color: rgba(0, 255, 255, 0.1);
     border: 1px solid #00FFFF;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     position: relative;
     overflow: hidden;
   }
@@ -849,7 +1339,7 @@
     border: 1px solid rgba(0, 255, 255, 0.5);
     background-color: rgba(0, 0, 20, 0.5);
     backdrop-filter: blur(2px);
-    padding: 10px;
+    padding: 8px;
     box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
     position: relative;
   }
@@ -869,17 +1359,26 @@
   .upper-left {
     top: 15px;
     left: 15px;
+    z-index: 10;
   }
   
   .upper-left .hud-box {
-    min-width: 150px;
+    min-width: 250px;
   }
   
-  .hud-time {
-    font-size: 20px;
-    font-weight: bold;
-    letter-spacing: 1px;
-    text-shadow: 0 0 5px #00FFFF;
+  .hud-stat {
+    font-size: 14px;
+    color: #00FFFF;
+    margin-top: 5px;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
+    line-height: 1.5;
+  }
+  
+  .hud-participants {
+    font-size: 14px;
+    color: #00FFFF;
+    margin-top: 8px;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
   }
   
   .hud-date, .hud-status {
@@ -895,12 +1394,12 @@
   }
   
   .upper-right .hud-box {
-    min-width: 150px;
+    min-width: 250px;
   }
   
   .hud-graph {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     height: 40px;
     margin-bottom: 5px;
   }
@@ -923,24 +1422,27 @@
     left: 50%;
     transform: translateX(-50%);
     z-index: 12;
+    width: auto;
+    max-width: 300px;
   }
   
   .logo-container {
     position: relative;
-    padding: 15px 30px;
+    padding: 10px 20px;
     background-color: rgba(0, 0, 20, 0.7);
     border-bottom-left-radius: 20px;
     border-bottom-right-radius: 20px;
     backdrop-filter: blur(5px);
     border: 1px solid rgba(0, 255, 255, 0.3);
     border-top: none;
+    text-align: center;
   }
   
   .logo-container img {
     height: auto;
     width: auto;
     max-height: 60px;
-    max-width: 180px;
+    max-width: 140px;
     object-fit: contain;
     filter: drop-shadow(0 0 8px rgba(0, 255, 255, 0.7));
     transition: transform 0.3s ease;
@@ -1124,31 +1626,236 @@
   
   /* Responsive layout */
   @media (max-width: 768px) {
-    .upper-left .hud-box,
-    .upper-right .hud-box {
-      min-width: 100px;
+    /* Hide the upper elements and panels on mobile */
+    .upper-left, 
+    .upper-right, 
+    .recent-buys,
+    .chatbox,
+    .mobile-toggles {
+      display: none;
     }
     
-    .hud-time {
-      font-size: 16px;
+    /* Center logo adjustments */
+    .center-logo {
+      max-width: 80%;
+    }
+    
+    .logo-container {
+      padding: 5px 10px 10px 10px;
     }
     
     .logo-container img {
-      max-height: 50px;
-      max-width: 140px;
+      max-height: 40px;
+      max-width: 100px;
+      margin-bottom: 8px;
     }
     
-    .nav-button {
-      padding: 10px 15px;
+    .whitepaper-link {
+      font-size: 9px;
+      padding: 3px 8px;
     }
     
-    .button-text {
+    /* Main game content - optimized for mobile full screen */
+    .game-content {
+      width: 92%;
+      top: 80px;
+      bottom: 60px; /* Reduced space for smaller nav buttons */
+      height: auto;
+      margin: 0 auto;
+    }
+    
+    .game-frame {
+      padding: 10px;
+      height: 100%;
+    }
+    
+    /* Timer adjustments */
+    .timer-container {
+      padding: 6px;
+      margin-bottom: 8px;
+    }
+    
+    .timer-label {
+      font-size: 11px;
+      margin-bottom: 2px;
+    }
+    
+    .time-unit {
+      font-size: 16px;
+      min-width: 24px;
+      padding: 2px 3px;
+    }
+    
+    .time-separator {
+      font-size: 16px;
+    }
+    
+    /* Prize pool must not overflow */
+    .prize-container {
+      padding: 6px;
+      margin-bottom: 6px;
+    }
+    
+    .prize-label {
+      font-size: 12px;
+      margin-bottom: 2px;
+    }
+    
+    .prize-value {
+      font-size: 28px;
+      margin-bottom: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 100%;
+    }
+    
+    .prize-subtitle {
+      font-size: 11px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    /* Player stats - equally placed */
+    .player-stats {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    
+    .stat-item {
+      flex: 1;
+      padding: 5px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .stat-label {
+      font-size: 9px;
+      margin-bottom: 3px;
+    }
+    
+    .stat-value {
       font-size: 14px;
     }
     
-    .radar-circle {
-      width: 60px;
+    /* Main button - smaller for mobile */
+    .button-container {
+      max-width: 220px;
+      margin: 8px 0;
+    }
+    
+    .mega-button {
+      height: 70px;
+      padding: 8px;
+    }
+    
+    .button-primary-text {
+      font-size: 16px;
+      margin-bottom: 3px;
+    }
+    
+    .button-secondary-text {
+      font-size: 11px;
+    }
+    
+    /* Featured logos section - position it at the bottom of the game area */
+    .featured-logos {
+      position: absolute;
+      bottom: 50px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      padding: 4px 0;
+    }
+    
+    .featured-title {
+      font-size: 10px;
+      margin-bottom: 3px;
+    }
+    
+    .logos-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 4px;
+    }
+    
+    .logo-item {
+      font-size: 9px;
+      padding: 3px 5px;
+    }
+    
+    /* Navigation at bottom - smaller and fixed width */
+    .nav-options {
+      position: fixed;
+      bottom: 5px;
+      left: 0;
+      width: 100%;
+      justify-content: center;
+      padding: 5px 0;
+      gap: 5px;
+      z-index: 20;
+    }
+    
+    .nav-button {
+      padding: 6px 8px;
+      transform: scale(0.9);
+    }
+    
+    .button-text {
+      font-size: 10px;
+      letter-spacing: 1px;
+    }
+    
+    /* Frame corners - smaller */
+    .frame-corner {
+      width: 12px;
+      height: 12px;
+      border-width: 1px;
+    }
+  }
+  
+  /* Extra small mobile devices */
+  @media (max-width: 350px) {
+    .game-content {
+      width: 96%;
+      top: 70px;
+    }
+    
+    .prize-value {
+      font-size: 24px;
+    }
+    
+    .time-unit {
+      font-size: 14px;
+      min-width: 20px;
+    }
+    
+    .mega-button {
       height: 60px;
+    }
+    
+    .button-primary-text {
+      font-size: 14px;
+    }
+    
+    .nav-button {
+      padding: 5px 6px;
+      transform: scale(0.85);
+    }
+    
+    .nav-options {
+      gap: 2px;
+    }
+    
+    .button-text {
+      font-size: 9px;
     }
   }
   
@@ -1173,7 +1880,7 @@
   
   /* Panel Styles for Recent Buys and Chatbox */
   .panel {
-    min-width: 280px;
+    min-width: auto;
     display: flex;
     flex-direction: column;
   }
@@ -1183,31 +1890,31 @@
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid rgba(0, 255, 255, 0.3);
-    padding-bottom: 8px;
-    margin-bottom: 10px;
+    padding-bottom: 6px;
+    margin-bottom: 8px;
     cursor: pointer;
   }
   
   .panel-title {
     font-weight: bold;
-    font-size: 14px;
+    font-size: 13px;
     letter-spacing: 1px;
     text-shadow: 0 0 5px #00FFFF;
   }
   
   .panel-controls {
     display: flex;
-    gap: 8px;
+    gap: 6px;
   }
   
   .panel-control {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     border: 1px solid rgba(0, 255, 255, 0.5);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: 10px;
   }
   
   .panel-content {
@@ -1215,7 +1922,7 @@
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 255, 255, 0.5) rgba(0, 0, 0, 0.2);
-    max-height: 250px;
+    max-height: none;
   }
   
   .panel-content::-webkit-scrollbar {
@@ -1228,26 +1935,38 @@
   
   .panel-content::-webkit-scrollbar-thumb {
     background-color: rgba(0, 255, 255, 0.5);
+    border-radius: 3px;
+    border: 1px solid rgba(0, 255, 255, 0.2);
   }
   
   .panel-footer {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-top: 10px;
-    padding-top: 8px;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 6px;
     border-top: 1px solid rgba(0, 255, 255, 0.3);
-    font-size: 10px;
+    font-size: 9px;
+  }
+  
+  .pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #00FFFF;
+    animation: pulse 1.5s infinite;
   }
   
   /* Recent Buys Styles */
   .recent-buys {
     position: fixed;
     left: 15px;
-    top: 100px;
+    top: 200px;
     bottom: 100px;
-    width: 280px;
+    width: 240px;
     height: auto;
+    max-height: 60%;
+    min-height: 250px;
   }
   
   .recent-buys .panel {
@@ -1260,400 +1979,33 @@
     flex: 1;
     max-height: none;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 255, 255, 0.5) rgba(0, 0, 0, 0.2);
+    padding-right: 5px;
   }
   
   .buy-item {
-    padding: 8px 0;
+    padding: 6px 0;
     border-bottom: 1px solid rgba(0, 255, 255, 0.1);
   }
   
   .buy-address {
+    font-size: 12px;
     color: #00FFFF;
-    font-size: 14px;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
   }
   
   .buy-details {
     display: flex;
     justify-content: space-between;
-    font-size: 12px;
+    font-size: 10px;
     color: rgba(0, 255, 255, 0.7);
   }
   
   .buy-amount {
     font-weight: bold;
-  }
-  
-  .pulse-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background-color: #00FFFF;
-    animation: pulse 1.5s infinite;
-  }
-  
-  @keyframes pulse {
-    0% { opacity: 1; box-shadow: 0 0 0 0 rgba(0, 255, 255, 0.7); }
-    70% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(0, 255, 255, 0); }
-    100% { opacity: 1; }
-  }
-  
-  /* Chatbox Styles */
-  .chatbox {
-    position: fixed;
-    right: 20px;
-    top: 100px;
-    bottom: 100px;
-    width: 260px;
-    height: auto;
-    max-width: 20%;
-  }
-  
-  .chatbox .panel {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  
-  /* Always show chat even when not expanded */
-  .chatbox .panel-content {
-    flex: 1;
-    max-height: none;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  /* Make chat always visible, not just when expanded */
-  .chatbox:not(.expanded) .panel-content {
-    max-height: calc(100% - 60px);
-    display: block;
-  }
-  
-  .chatbox.expanded .panel {
-    height: 100%;
-  }
-  
-  .chat-messages {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  
-  .chat-message {
-    padding: 5px 0;
-  }
-  
-  .message-header {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 3px;
-  }
-  
-  .message-sender {
-    font-weight: bold;
-    font-size: 12px;
-    color: #00FFFF;
-  }
-  
-  .message-time {
-    font-size: 10px;
-    color: rgba(0, 255, 255, 0.6);
-  }
-  
-  .message-content {
-    font-size: 13px;
-    line-height: 1.4;
-    word-break: break-word;
-  }
-  
-  .chat-input-container {
-    display: flex;
-    margin-top: 10px;
-    gap: 5px;
-  }
-  
-  .chat-input {
-    flex: 1;
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(0, 255, 255, 0.3);
-    color: #00FFFF;
-    padding: 8px 10px;
-    font-family: 'Courier New', monospace;
-    font-size: 12px;
-  }
-  
-  .chat-input:focus {
-    outline: none;
-    border-color: rgba(0, 255, 255, 0.8);
-    box-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
-  }
-  
-  .chat-send {
-    background: rgba(0, 0, 0, 0.5);
-    border: 1px solid rgba(0, 255, 255, 0.5);
-    color: #00FFFF;
-    padding: 5px 10px;
-    cursor: pointer;
-    font-family: 'Courier New', monospace;
-    font-size: 12px;
-    transition: all 0.3s ease;
-  }
-  
-  .chat-send:hover {
-    background-color: rgba(0, 255, 255, 0.2);
-  }
-  
-  /* Game Interface Styles */
-  .game-interface {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0px;
-    padding: 0px 0;
-  }
-  
-  /* Prize Pool */
-  .prize-container {
-    text-align: center;
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 10px;
-  }
-  
-  .prize-label {
-    font-size: 16px;
-    margin-bottom: 5px;
-    color: rgba(0, 255, 255, 0.8);
-  }
-  
-  .prize-value {
-    font-size: 48px;
-    font-weight: bold;
-    color: #00FFFF;
-    text-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
-    margin-bottom: 5px;
-    letter-spacing: 1px;
-  }
-  
-  .prize-subtitle {
-    font-size: 14px;
-    color: rgba(0, 255, 255, 0.6);
-  }
-  
-  /* Timer Display */
-  .timer-container {
-    text-align: center;
-    margin-bottom: 20px;
-  }
-  
-  .timer-label {
-    font-size: 14px;
-    margin-bottom: 5px;
-    color: rgba(0, 255, 255, 0.8);
-  }
-  
-  .timer-display {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 5px;
-  }
-  
-  .time-unit {
-    font-size: 32px;
-    font-weight: bold;
-    color: #00FFFF;
-    background-color: rgba(0, 0, 50, 0.5);
-    padding: 5px 10px;
-    border: 1px solid rgba(0, 255, 255, 0.3);
-    min-width: 50px;
-    text-align: center;
-  }
-  
-  .time-separator {
-    font-size: 32px;
-    color: #00FFFF;
-  }
-  
-  /* Mega Button */
-  .button-container {
-    position: relative;
-    width: 100%;
-    max-width: 300px;
-    margin: 10px 0 30px;
-  }
-  
-  .mega-button {
-    position: relative;
-    width: 100%;
-    height: 120px;
-    background-color: rgba(0, 50, 100, 0.4);
-    border: 2px solid #00FFFF;
-    cursor: pointer;
-    padding: 20px;
-    transition: all 0.3s ease;
-    overflow: hidden;
-    font-family: 'Courier New', monospace;
-    z-index: 1;
-  }
-  
-  .button-pulse {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 150%;
-    height: 150%;
-    background: radial-gradient(
-      circle,
-      rgba(0, 255, 255, 0.5) 0%,
-      transparent 70%
-    );
-    opacity: 0;
-    animation: button-pulse 2s infinite;
-    z-index: 0;
-  }
-  
-  @keyframes button-pulse {
-    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-    50% { opacity: 0.3; transform: translate(-50%, -50%) scale(1); }
-    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-  }
-  
-  .button-content {
-    position: relative;
-    z-index: 2;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-  }
-  
-  .button-primary-text {
-    font-size: 24px;
-    font-weight: bold;
-    color: #00FFFF;
-    text-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
-    margin-bottom: 10px;
-    letter-spacing: 2px;
-  }
-  
-  .button-secondary-text {
-    font-size: 14px;
-    color: rgba(0, 255, 255, 0.8);
-  }
-  
-  .mega-button:hover {
-    background-color: rgba(0, 100, 200, 0.4);
-    box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-    transform: scale(1.02);
-  }
-  
-  .mega-button:active {
-    transform: scale(0.98);
-    background-color: rgba(0, 150, 255, 0.6);
-  }
-  
-  /* Player Stats */
-  .player-stats {
-    display: flex;
-    justify-content: space-between;
-    width: 50%;
-    gap: 20px;
-  }
-  
-  .stat-item {
-    flex: 1;
-    text-align: center;
-    border: 1px solid rgba(0, 255, 255, 0.3);
-    padding: 10px;
-
-  }
-  
-  .stat-label {
-    font-size: 12px;
-    margin-bottom: 5px;
-    color: rgba(0, 255, 255, 0.7);
-  }
-  
-  .stat-value {
-    font-size: 18px;
-    font-weight: bold;
-    color: #00FFFF;
-  }
-  
-  /* New styles for added features */
-  .hud-participants {
-    font-size: 14px;
-    color: #00FFFF;
-    margin-top: 8px;
-    text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
-  }
-  
-  .hud-block {
-    font-size: 14px;
-    color: #00FFFF;
-    margin-top: 5px;
-    text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
-    text-align: right;
-  }
-  
-  .whitepaper-link {
-    position: absolute;
-    bottom: -5px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 12px;
-    color: #00FFFF;
-    text-decoration: none;
-    text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
-    padding: 3px 8px;
-    border: 1px solid rgba(0, 255, 255, 0.3);
-    background-color: rgba(0, 0, 20, 0.5);
-    transition: all 0.3s ease;
-  }
-  
-  .whitepaper-link:hover {
-    background-color: rgba(0, 255, 255, 0.2);
-    border-color: rgba(0, 255, 255, 0.6);
-  }
-  
-  .docs-link {
-    position: absolute;
-    top: -20px;
-    right: 0;
-  }
-  
-  .docs-link a {
-    font-size: 12px;
-    color: #00FFFF;
-    text-decoration: none;
-    text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
-    padding: 3px 8px;
-    border: 1px solid rgba(0, 255, 255, 0.3);
-    background-color: rgba(0, 0, 20, 0.5);
-    transition: all 0.3s ease;
-  }
-  
-  .docs-link a:hover {
-    background-color: rgba(0, 255, 255, 0.2);
-    border-color: rgba(0, 255, 255, 0.6);
-  }
-  
-  .featured-logos {
-    position: absolute;
-    bottom: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    text-align: center;
-    padding: 10px 20px;
-    background-color: rgba(0, 0, 20, 0.5);
-    border: 1px solid rgba(0, 255, 255, 0.2);
-    border-radius: 5px;
   }
   
   .featured-title {
@@ -1697,57 +2049,61 @@
   /* Game Content Styles */
   .game-content {
     position: fixed;
-    top: 100px;
+    top: 120px;
     left: 50%;
     transform: translateX(-50%);
-    width: calc(100% - 640px);
-    height: calc(100% - 220px);
+    width: calc(100% - 600px);
+    height: calc(100% - 240px);
     z-index: 5;
   }
   
   .game-frame {
     width: 100%;
-    height: 90%;
+    height: 95%;
     position: relative;
-border-radius:12px;
+    border-radius: 12px;
+    background-color: rgba(0, 0, 20, 0.4);
     backdrop-filter: blur(1px);
-    padding: 20px;
-
+    padding: 20px;box-sizing: border-box;
     box-sizing: border-box;
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+    overflow: hidden;
   }
   
   .frame-corner {
     position: absolute;
-    width: 15px;
-    height: 15px;
+    width: 20px;
+    height: 20px;
     border: 2px solid #00FFFF;
     z-index: 1;
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
   }
   
   .top-left {
-    top: -2px;
-    left: -2px;
+    top: 0;
+    left: 0;
     border-right: none;
     border-bottom: none;
   }
   
   .top-right {
-    top: -2px;
-    right: -2px;
+    top: 0;
+    right: 0;
     border-left: none;
     border-bottom: none;
   }
   
   .bottom-left {
-    bottom: -2px;
-    left: -2px;
+    bottom: 0;
+    left: 0;
     border-right: none;
     border-top: none;
   }
   
   .bottom-right {
-    bottom: -2px;
-    right: -2px;
+    bottom: 0;
+    right: 0;
     border-left: none;
     border-top: none;
   }
@@ -1776,7 +2132,7 @@ border-radius:12px;
   
   .game-header {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     border-bottom: 1px solid rgba(0, 255, 255, 0.3);
     padding-bottom: 10px;
@@ -1819,18 +2175,22 @@ border-radius:12px;
   /* Responsive styles */
   @media (max-width: 1400px) {
     .game-content {
-      width: calc(100% - 600px);
+      width: calc(100% - 520px);
     }
     
     .chatbox {
-      width: 240px;
+      width: 220px;
       max-width: 18%;
+    }
+    
+    .recent-buys {
+      width: 220px;
     }
   }
   
   @media (max-width: 1200px) {
     .recent-buys, .chatbox {
-      width: 220px;
+      width: 200px;
     }
     
     .chatbox {
@@ -1839,87 +2199,228 @@ border-radius:12px;
     }
     
     .game-content {
-      width: calc(100% - 500px);
-    }
-  }
-  
-  @media (max-width: 1000px) {
-    .recent-buys, .chatbox {
-      width: 190px;
+      width: calc(100% - 430px);
     }
     
-    .chatbox {
-      right: 10px;
-    }
-    
-    .game-content {
-      width: calc(100% - 420px);
-    }
-    
-    .buy-address, .message-sender {
-      font-size: 12px;
-    }
-    
-    .buy-details, .message-time {
-      font-size: 10px;
-    }
-  }
-  
-  @media (max-width: 768px) {
-    .game-content {
-      width: calc(100% - 20px);
-      top: 80px;
-      height: calc(100% - 180px);
-    }
-    
-    .recent-buys, .chatbox {
-      top: initial;
-      position: fixed;
-      height: 180px;
-      width: calc(50% - 15px);
-      bottom: 100px;
-      max-width: none;
-    }
-    
-    .recent-buys {
-      left: 10px;
-    }
-    
-    .chatbox {
-      right: 10px;
-    }
-    
-    .panel {
-      min-width: auto;
-    }
-    
-    .game-title {
-      font-size: 14px;
-    }
-    
-    .game-status, .game-version {
-      font-size: 10px;
+    .player-stats {
+      width: 70%;
     }
     
     .prize-value {
       font-size: 36px;
     }
+  }
+  
+  @media (max-width: 1000px) {
+    .recent-buys, .chatbox {
+      width: 180px;
+    }
+    
+    .chatbox {
+      right: 10px;
+    }
+    
+    .game-content {
+      width: calc(100% - 380px);
+      top: 100px;
+    }
+    
+    .buy-address, .message-sender {
+      font-size: 11px;
+    }
+    
+    .buy-details, .message-time {
+      font-size: 9px;
+    }
+    
+    .player-stats {
+      width: 90%;
+    }
+    
+    .prize-value {
+      font-size: 32px;
+    }
     
     .time-unit {
       font-size: 24px;
-      min-width: 40px;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    /* Hide the upper elements on mobile */
+    .upper-left, .upper-right {
+      display: none;
+    }
+    
+    /* Center logo adjustments */
+    .center-logo {
+      max-width: 80%;
+    }
+    
+    .logo-container {
+      padding: 5px 10px 10px 10px;
+    }
+    
+    .logo-container img {
+      max-height: 40px;
+      max-width: 100px;
+      margin-bottom: 8px;
+    }
+    
+    .whitepaper-link {
+      font-size: 9px;
+      padding: 3px 8px;
+    }
+    
+    /* Main game content - adjust position since top boxes are hidden */
+    .game-content {
+      width: 90%;
+      top: 80px;
+      height: calc(100% - 250px);
+    }
+    
+    .game-frame {
+      padding: 10px;
+    }
+    
+    .frame-corner {
+      width: 15px;
+      height: 15px;
+    }
+    
+    /* Timer and prize adjustments */
+    .timer-container {
+      padding: 8px;
+    }
+    
+    .timer-label {
+      font-size: 12px;
+    }
+    
+    .time-unit {
+      font-size: 20px;
+      min-width: 30px;
+      padding: 3px 5px;
     }
     
     .time-separator {
-      font-size: 24px;
-    }
-    
-    .button-primary-text {
       font-size: 20px;
     }
     
+    .prize-label {
+      font-size: 14px;
+    }
+    
+    .prize-value {
+      font-size: 32px;
+    }
+    
+    .prize-subtitle {
+      font-size: 12px;
+    }
+    
+    /* Player stats */
+    .player-stats {
+      width: 100%;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    
+    .stat-label {
+      font-size: 10px;
+    }
+    
+    .stat-value {
+      font-size: 16px;
+    }
+    
+    /* Main button */
+    .button-container {
+      max-width: 250px;
+    }
+    
     .mega-button {
-      height: 100px;
+      height: 80px;
+      padding: 10px;
+    }
+    
+    .button-primary-text {
+      font-size: 18px;
+      margin-bottom: 5px;
+    }
+    
+    .button-secondary-text {
+      font-size: 12px;
+    }
+    
+    /* Chat and recent buys panels - side by side */
+    .recent-buys, .chatbox {
+      position: fixed;
+      height: 180px;
+      width: calc(50% - 10px);
+      max-height: 180px;
+      min-height: 180px;
+      bottom: 90px;
+      top: auto;
+    }
+    
+    .recent-buys {
+      left: 5px;
+    }
+    
+    .chatbox {
+      right: 5px;
+      max-width: calc(50% - 10px);
+    }
+    
+    .panel {
+      min-width: auto;
+      max-height: 100%;
+    }
+    
+    .panel-header {
+      padding-bottom: 4px;
+      margin-bottom: 5px;
+    }
+    
+    .panel-title {
+      font-size: 11px;
+    }
+    
+    .panel-control {
+      width: 12px;
+      height: 12px;
+      font-size: 8px;
+    }
+    
+    /* Featured logos section */
+    .featured-logos {
+      bottom: 70px;
+      padding: 4px 8px;
+    }
+    
+    .featured-title {
+      font-size: 10px;
+      margin-bottom: 5px;
+    }
+    
+    .logo-item {
+      font-size: 10px;
+      padding: 3px 6px;
+    }
+    
+    /* Nav buttons */
+    .nav-options {
+      bottom: 15px;
+      gap: 8px;
+    }
+    
+    .nav-button {
+      padding: 8px 12px;
+    }
+    
+    .button-text {
+      font-size: 12px;
     }
   }
   
@@ -2127,5 +2628,533 @@ border-radius:12px;
     .wallet-name {
       font-size: 14px;
     }
+  }
+  
+  /* Referral Section Styles */
+  .referral-section {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(0, 255, 255, 0.3);
+  }
+  
+  .referral-payout {
+    font-size: 16px;
+    font-weight: bold;
+    color: #00FFFF;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
+    margin-bottom: 5px;
+  }
+  
+  .referral-info {
+    font-size: 12px;
+    color: rgba(0, 255, 255, 0.8);
+    margin-bottom: 10px;
+  }
+  
+  .referral-button {
+    position: relative;
+    width: 100%;
+    padding: 8px 16px;
+    background-color: rgba(0, 50, 100, 0.4);
+    border: none;
+    color: #00FFFF;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    letter-spacing: 1px;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    z-index: 2;
+  }
+  
+  .referral-button .button-text {
+    position: relative;
+    z-index: 2;
+  }
+  
+  .referral-button .button-glow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 255, 255, 0.1);
+    border: 1px solid rgba(0, 255, 255, 0.5);
+    transition: all 0.3s ease;
+    z-index: 1;
+  }
+  
+  .referral-button .button-brackets:before,
+  .referral-button .button-brackets:after {
+    content: "";
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border: 2px solid #00FFFF;
+    transition: all 0.3s ease;
+    z-index: 3;
+  }
+  
+  .referral-button .button-brackets:before {
+    top: 4px;
+    left: 4px;
+    border-right: none;
+    border-bottom: none;
+  }
+  
+  .referral-button .button-brackets:after {
+    bottom: 4px;
+    right: 4px;
+    border-left: none;
+    border-top: none;
+  }
+  
+  .referral-button:hover .button-brackets:before {
+    transform: translate(-2px, -2px);
+  }
+  
+  .referral-button:hover .button-brackets:after {
+    transform: translate(2px, 2px);
+  }
+  
+  .referral-button:hover .button-glow {
+    background-color: rgba(0, 255, 255, 0.3);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+  }
+  
+  /* Referral Modal Styles */
+  .referral-modal {
+    position: relative;
+    background-color: rgba(10, 20, 50, 0.95);
+    border: 2px solid #00FFFF;
+    border-radius: 10px;
+    padding: 30px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+    color: #00FFFF;
+    font-family: 'Courier New', monospace;
+  }
+  
+  .referral-modal h2 {
+    color: #00FFFF;
+    text-align: center;
+    margin-bottom: 25px;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
+  }
+  
+  .referral-modal h3 {
+    font-size: 18px;
+    margin: 20px 0 15px;
+    color: #00FFFF;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
+    letter-spacing: 1px;
+  }
+  
+  .referral-link-container {
+    display: flex;
+    margin-bottom: 15px;
+    gap: 10px;
+  }
+  
+  .referral-link-input {
+    flex: 1;
+    background-color: rgba(0, 0, 30, 0.5);
+    border: 1px solid rgba(0, 255, 255, 0.5);
+    color: #00FFFF;
+    padding: 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+  }
+  
+  .copy-button {
+    background-color: rgba(0, 255, 255, 0.2);
+    border: 1px solid rgba(0, 255, 255, 0.6);
+    color: #00FFFF;
+    padding: 0 15px;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+  }
+  
+  .copy-button:hover {
+    background-color: rgba(0, 255, 255, 0.3);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
+  }
+  
+  .referral-leaderboard {
+    background-color: rgba(0, 0, 30, 0.3);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 15px;
+  }
+  
+  .leaderboard-table {
+    width: 100%;
+    font-size: 14px;
+  }
+  
+  .leaderboard-header {
+    display: flex;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.5);
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: rgba(0, 255, 255, 0.9);
+  }
+  
+  .leaderboard-row {
+    display: flex;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+  }
+  
+  .leaderboard-row:last-child {
+    border-bottom: none;
+  }
+  
+  .column {
+    flex: 1;
+  }
+  
+  .column:first-child {
+    flex: 0.3;
+  }
+  
+  .column.earned {
+    color: #00FF80;
+    text-shadow: 0 0 5px rgba(0, 255, 128, 0.7);
+    font-weight: bold;
+  }
+  
+  .referral-explanation {
+    font-size: 14px;
+    line-height: 1.4;
+    color: rgba(0, 255, 255, 0.8);
+  }
+  
+  .referral-explanation p {
+    margin-bottom: 10px;
+  }
+
+  /* Chatbox Styles */
+  .chatbox {
+    position: fixed;
+    right: 15px;
+    top: 200px;
+    bottom: 100px;
+    width: 230px;
+    height: auto;
+    max-height: 60%;
+    min-height: 250px;
+    max-width: 20%;
+  }
+  
+  .chatbox .panel {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  
+  /* Always show chat even when not expanded */
+  .chatbox .panel-content {
+    flex: 1;
+    max-height: none;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 255, 255, 0.5) rgba(0, 0, 0, 0.2);
+    padding-right: 5px;
+  }
+  
+  .chatbox .panel-content::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .chatbox .panel-content::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+  }
+  
+  .chatbox .panel-content::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 255, 255, 0.5);
+    border-radius: 3px;
+    border: 1px solid rgba(0, 255, 255, 0.2);
+  }
+
+  .featured-logos {
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    padding: 5px 10px;
+    background-color: rgba(0, 0, 20, 0.5);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    border-radius: 5px;
+    z-index: 4;
+  }
+  
+  /* Game Interface Elements */
+  .game-interface {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    height: 100%;
+    width: 100%;
+    padding: 20px;box-sizing: border-box;
+    position: relative;
+  }
+  
+  /* Prize Pool */
+  .prize-container {
+    text-align: center;
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: rgba(0, 0, 30, 0.3);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    border-radius: 8px;
+  }
+  
+  .prize-label {
+    font-size: 16px;
+    margin-bottom: 5px;
+    color: rgba(0, 255, 255, 0.8);
+  }
+  
+  .prize-value {
+    font-size: 42px;
+    font-weight: bold;
+    color: #00FFFF;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
+    margin-bottom: 5px;
+    letter-spacing: 1px;
+  }
+  
+  .prize-subtitle {
+    font-size: 14px;
+    color: rgba(0, 255, 255, 0.6);
+  }
+  
+  /* Mega Button */
+  .button-container {
+    position: relative;
+    width: 100%;
+    max-width: 300px;
+    margin: 15px 0;
+  }
+  
+  .mega-button {
+    position: relative;
+    width: 100%;
+    height: 100px;
+    background-color: rgba(0, 50, 100, 0.4);
+    border: 2px solid #00FFFF;
+    cursor: pointer;
+    padding: 20px;
+    transition: all 0.3s ease;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+    z-index: 1;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+  }
+  
+  .mega-button:before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border: 2px solid rgba(0, 255, 255, 0.3);
+    pointer-events: none;
+    z-index: 0;
+  }
+  
+  .button-pulse {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 150%;
+    height: 150%;
+    background: radial-gradient(
+      circle,
+      rgba(0, 255, 255, 0.5) 0%,
+      transparent 70%
+    );
+    opacity: 0;
+    animation: button-pulse 2s infinite;
+    z-index: 0;
+  }
+  
+  @keyframes button-pulse {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    50% { opacity: 0.3; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  }
+  
+  .button-content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+  }
+  
+  .button-primary-text {
+    font-size: 22px;
+    font-weight: bold;
+    color: #00FFFF;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
+    margin-bottom: 10px;
+    letter-spacing: 2px;
+  }
+  
+  .button-secondary-text {
+    font-size: 14px;
+    color: rgba(0, 255, 255, 0.8);
+  }
+  
+  .mega-button:hover {
+    background-color: rgba(0, 100, 200, 0.4);
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+    transform: scale(1.02);
+  }
+  
+  .mega-button:active {
+    transform: scale(0.98);
+    background-color: rgba(0, 150, 255, 0.6);
+  }
+  
+  /* Player Stats */
+  .player-stats {
+    display: flex;
+    justify-content: flex-start;
+    width: 50%;
+    gap: 20px;
+    margin-bottom: 15px;
+  }
+  
+  .stat-item {
+    flex: 1;
+    text-align: center;
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    padding: 10px;
+    background-color: rgba(0, 0, 30, 0.3);
+    border-radius: 5px;
+  }
+  
+  .stat-label {
+    font-size: 12px;
+    margin-bottom: 5px;
+    color: rgba(0, 255, 255, 0.7);
+  }
+  
+  .stat-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: #00FFFF;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+  }
+  
+  /* Timer Display */
+  .timer-container {
+    text-align: center;
+    margin-bottom: 15px;
+    margin-top: 10px;
+    width: 100%;
+    background-color: rgba(0, 0, 30, 0.3);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 10px;
+  }
+  
+  .timer-label {
+    font-size: 14px;
+    margin-bottom: 5px;
+    color: rgba(0, 255, 255, 0.8);
+  }
+  
+  .timer-display {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+  }
+  
+  .time-unit {
+    font-size: 28px;
+    font-weight: bold;
+    color: #00FFFF;
+    background-color: rgba(0, 0, 50, 0.5);
+    padding: 3px 8px;
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    min-width: 40px;
+    text-align: center;
+  }
+  
+  .time-separator {
+    font-size: 28px;
+    color: #00FFFF;
+  }
+  
+  .message-content {
+    font-size: 11px;
+    line-height: 1.3;
+    word-break: break-word;
+  }
+  
+  .chat-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .chat-input-container {
+    display: flex;
+    margin-top: 8px;
+    gap: 4px;
+  }
+  
+  .chat-input {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    color: #00FFFF;
+    padding: 6px 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+  }
+  
+  .chat-input:focus {
+    outline: none;
+    border-color: rgba(0, 255, 255, 0.8);
+    box-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
+  }
+  
+  .chat-send {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(0, 255, 255, 0.5);
+    color: #00FFFF;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    transition: all 0.3s ease;
+  }
+  
+  .chat-send:hover {
+    background-color: rgba(0, 255, 255, 0.2);
   }
 </style> 

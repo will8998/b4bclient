@@ -90,7 +90,7 @@
     max-width: 800px;
     max-height: 90vh;
     background-color: rgba(45, 0, 128, 0.7);
-    border: 2px solid #00FFFF;
+    border: 2px solid #00FFFF;no
     border-radius: 10px;
     padding: 30px;
     overflow-y: auto;
