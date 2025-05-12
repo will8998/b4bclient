@@ -5,63 +5,143 @@
   
   export let show = false;
   export let triggerShockwave = () => {};
+  export let currentLanguage = 'en'; // Add language prop to support current language state
   
   const dispatch = createEventDispatcher();
   
   let currentStep = 0;
   let wizardComplete = false;
   
-  // Define wizard steps with content
-  const steps = [
-    {
-      title: "Welcome to Band 4 Band Rules",
-      content: "Let's understand how this game works and how you can win big!",
-      icon: "🎮",
-      animation: "pulse"
+  // Define wizard steps with content in both languages
+  const translations = {
+    en: {
+      // Wizard UI elements
+      back: "Back",
+      next: "Next",
+      finish: "Finish",
+      readyToPlay: "Ready to Play?",
+      nowKnowRules: "You now know all the rules of Band 4 Band!",
+      putStrategyToWork: "Time to put your strategy to work and win big.",
+      startPlayingNow: "START PLAYING NOW",
+      
+      // Wizard steps
+      steps: [
+        {
+          title: "Welcome to Band 4 Band Rules",
+          content: "Let's understand how this game works and how you can win big!",
+          icon: "🎮",
+          animation: "pulse"
+        },
+        {
+          title: "The Timer",
+          content: "• The timer starts at 24 hours\n• When it hits ZERO, the game ends\n• Each purchase resets the timer\n• Buying adds at least 2 minutes\n• The bigger the prize pool, the more time each buy adds",
+          icon: "⏰",
+          animation: "spin"
+        },
+        {
+          title: "The Prize",
+          content: "• Last buyer when the timer hits zero wins 75% of the prize pool 👑\n• All token holders share the remaining 25% 💸\n• The prize pool grows with every purchase!",
+          icon: "💰",
+          animation: "glow"
+        },
+        {
+          title: "Buy Tax",
+          content: "• Buy tax starts at 0% after each purchase\n• Increases linearly to 100% as the timer approaches zero\n• Tax is split between the previous buyer and the referrer\n• Buy EARLY to pay less tax!",
+          icon: "🧮",
+          animation: "bounce"
+        },
+        {
+          title: "Sell Tax",
+          content: "• Sells are taxed at 100% - your tokens get burned 🔥\n• This creates UP ONLY price action 📈\n• Everyone takes profit at the same time when the game ends",
+          icon: "🚫",
+          animation: "shake"
+        },
+        {
+          title: "Game Cycle",
+          content: "• Buy to become the potential winner\n• Get paid when others buy after you\n• Win BIG if no one buys before timer hits zero\n• The game keeps going until someone wins!",
+          icon: "🔄",
+          animation: "spin"
+        },
+        {
+          title: "The Strategy",
+          content: "The key is timing. Buy early enough to maximize your chances, but late enough to be the final buyer when the timer hits zero.",
+          icon: "🧠",
+          animation: "pulse"
+        },
+        {
+          title: "Remember",
+          content: "The only way to lose is to stop playing! 🎲",
+          icon: "💎",
+          animation: "glow"
+        }
+      ]
     },
-    {
-      title: "The Timer",
-      content: "• The timer starts at 24 hours\n• When it hits ZERO, the game ends\n• Each purchase resets the timer\n• Buying adds at least 2 minutes\n• The bigger the prize pool, the more time each buy adds",
-      icon: "⏰",
-      animation: "spin"
-    },
-    {
-      title: "The Prize",
-      content: "• Last buyer when the timer hits zero wins 75% of the prize pool 👑\n• All token holders share the remaining 25% 💸\n• The prize pool grows with every purchase!",
-      icon: "💰",
-      animation: "glow"
-    },
-    {
-      title: "Buy Tax",
-      content: "• Buy tax starts at 0% after each purchase\n• Increases linearly to 100% as the timer approaches zero\n• Tax is split between the previous buyer and the referrer\n• Buy EARLY to pay less tax!",
-      icon: "🧮",
-      animation: "bounce"
-    },
-    {
-      title: "Sell Tax",
-      content: "• Sells are taxed at 100% - your tokens get burned 🔥\n• This creates UP ONLY price action 📈\n• Everyone takes profit at the same time when the game ends",
-      icon: "🚫",
-      animation: "shake"
-    },
-    {
-      title: "Game Cycle",
-      content: "• Buy to become the potential winner\n• Get paid when others buy after you\n• Win BIG if no one buys before timer hits zero\n• The game keeps going until someone wins!",
-      icon: "🔄",
-      animation: "spin"
-    },
-    {
-      title: "The Strategy",
-      content: "The key is timing. Buy early enough to maximize your chances, but late enough to be the final buyer when the timer hits zero.",
-      icon: "🧠",
-      animation: "pulse"
-    },
-    {
-      title: "Remember",
-      content: "The only way to lose is to stop playing! 🎲",
-      icon: "💎",
-      animation: "glow"
+    zh: {
+      // Wizard UI elements
+      back: "返回",
+      next: "下一步",
+      finish: "完成",
+      readyToPlay: "准备好开始游戏了吗？",
+      nowKnowRules: "您现在已经了解了Band 4 Band的所有规则！",
+      putStrategyToWork: "是时候运用您的策略，赢取大奖了。",
+      startPlayingNow: "立即开始游戏",
+      
+      // Wizard steps
+      steps: [
+        {
+          title: "欢迎了解Band 4 Band规则",
+          content: "让我们了解这个游戏如何运作以及如何赢得大奖！",
+          icon: "🎮",
+          animation: "pulse"
+        },
+        {
+          title: "计时器",
+          content: "• 计时器从24小时开始\n• 当计时器归零时，游戏结束\n• 每次购买都会重置计时器\n• 购买至少增加2分钟\n• 奖池越大，每次购买增加的时间越多",
+          icon: "⏰",
+          animation: "spin"
+        },
+        {
+          title: "奖励",
+          content: "• 计时器归零时的最后购买者赢得奖池的75% 👑\n• 所有代币持有者分享剩余的25% 💸\n• 奖池随着每次购买而增长！",
+          icon: "💰",
+          animation: "glow"
+        },
+        {
+          title: "购买税",
+          content: "• 每次购买后，购买税从0%开始\n• 随着计时器接近零，税率线性增加至100%\n• 税款在前一位购买者和推荐人之间分配\n• 早购买可以支付更少的税！",
+          icon: "🧮",
+          animation: "bounce"
+        },
+        {
+          title: "卖出税",
+          content: "• 卖出税率为100% - 您的代币将被销毁 🔥\n• 这创造了只涨不跌的价格走势 📈\n• 当游戏结束时，所有人同时获利",
+          icon: "🚫",
+          animation: "shake"
+        },
+        {
+          title: "游戏周期",
+          content: "• 购买成为潜在赢家\n• 当他人在您之后购买时获得收益\n• 如果计时器归零前没人购买，您将赢得大奖\n• 游戏持续进行，直到有人获胜！",
+          icon: "🔄",
+          animation: "spin"
+        },
+        {
+          title: "策略",
+          content: "关键在于时机。足够早地购买以最大化您的机会，但又足够晚以成为计时器归零时的最后购买者。",
+          icon: "🧠",
+          animation: "pulse"
+        },
+        {
+          title: "记住",
+          content: "唯一的失败方式就是停止游戏！ 🎲",
+          icon: "💎",
+          animation: "glow"
+        }
+      ]
     }
-  ];
+  };
+  
+  // Use the current language steps
+  $: steps = translations[currentLanguage].steps;
   
   function nextStep() {
     if (currentStep < steps.length - 1) {
@@ -122,13 +202,13 @@
           
           <div class="wizard-controls">
             {#if currentStep > 0}
-              <button class="wizard-button prev" on:click={prevStep}>Back</button>
+              <button class="wizard-button prev" on:click={prevStep}>{translations[currentLanguage].back}</button>
             {:else}
               <div></div>
             {/if}
             
             <button class="wizard-button next" on:click={nextStep}>
-              {currentStep < steps.length - 1 ? 'Next' : 'Finish'}
+              {currentStep < steps.length - 1 ? translations[currentLanguage].next : translations[currentLanguage].finish}
             </button>
           </div>
         </div>
@@ -136,11 +216,11 @@
         <div class="wizard-complete" in:fly={{ y: 20, duration: 600 }}>
           <button class="close-button" on:click={closeWizard}>×</button>
           <div class="complete-icon">🎉</div>
-          <h2>Ready to Play?</h2>
-          <p>You now know all the rules of Band 4 Band!</p>
-          <p>Time to put your strategy to work and win big.</p>
+          <h2>{translations[currentLanguage].readyToPlay}</h2>
+          <p>{translations[currentLanguage].nowKnowRules}</p>
+          <p>{translations[currentLanguage].putStrategyToWork}</p>
           <button class="cta-button" on:click={goToGame}>
-            START PLAYING NOW
+            {translations[currentLanguage].startPlayingNow}
           </button>
         </div>
       {/if}

@@ -11,6 +11,12 @@
   let showAbout = false;
   let showRules = false;
   let mounted = false;
+  let currentLanguage = 'en'; // Initialize language setting
+  
+  // Function to get the current language from the CyberpunkHUD component
+  function handleLanguageChange(lang) {
+    currentLanguage = lang;
+  }
   
   function toggleAbout() {
     showAbout = !showAbout;
@@ -43,12 +49,12 @@
 <!-- Load grid background and HUD only on client side -->
 {#if mounted}
   <GridBackgroundLoader />
-  <CyberpunkHUD {toggleAbout} {toggleRules} />
+  <CyberpunkHUD {toggleAbout} {toggleRules} bind:currentLanguage={currentLanguage} />
 {/if}
 
 <!-- Wizard Guides -->
-<WizardGuide show={showAbout} {triggerShockwave} on:close={closeModals} />
-<RulesWizard show={showRules} {triggerShockwave} on:close={closeModals} />
+<WizardGuide show={showAbout} {triggerShockwave} on:close={closeModals} {currentLanguage} />
+<RulesWizard show={showRules} {triggerShockwave} on:close={closeModals} {currentLanguage} />
 
 <style>
   .placeholder-bg {

@@ -6,6 +6,136 @@
   import Asteroids from './Asteroids.svelte';
   import gameService from '$lib/api/gameService';
   
+  // Language switching functionality
+  export let currentLanguage = 'en'; // Default language is English
+  
+  // Translation data for UI
+  const translations = {
+    en: {
+      // Header elements
+      pnl: "P&L",
+      amountSpent: "Amount Spent",
+      consolationPrizePool: "Consolation Prize Pool",
+      shareOfConsolationPrize: "Share of Consolation Prize",
+      profit: "Profit",
+      loss: "Loss",
+      prize: "Prize",
+      
+      // Wallet
+      connectWallet: "CONNECT WALLET",
+      payout: "PAYOUT",
+      ifYouRefer: "IF YOU REFER THE NEXT BUYER:",
+      referFriends: "REFER FRIENDS",
+      
+      // Main game
+      timeRemaining: "TIME REMAINING",
+      willWin: "will win",
+      unless: "unless you",
+      yourTokens: "YOUR TOKENS",
+      network: "NETWORK",
+      ethereum: "ETHEREUM",
+      takeHisPlace: "TAKE HIS PLACE",
+      currentPrice: "CURRENT PRICE",
+      
+      // Panels
+      recentBuys: "RECENT BUYS",
+      liveUpdates: "LIVE UPDATES",
+      globalChat: "GLOBAL CHAT",
+      send: "SEND",
+      typeMessage: "Type a message...",
+      
+      // Bottom section
+      asSeenOn: "AS SEEN ON",
+      about: "ABOUT",
+      rules: "RULES",
+      telegram: "TELEGRAM",
+      twitter: "TWITTER",
+      
+      // Modal content
+      connectYourWallet: "Connect Your Wallet",
+      connecting: "Connecting...",
+      yourReferralLink: "Your Referral Link",
+      copyLink: "COPY LINK",
+      topReferrers: "TOP REFERRERS",
+      rank: "RANK",
+      address: "ADDRESS",
+      earned: "EARNED",
+      referralExplanation1: "Share your unique referral link with friends. When they use your link to join Band 4 Band and make a purchase, you'll earn a commission of their purchase amount.",
+      referralExplanation2: "Top referrers can earn additional bonuses and exclusive perks!",
+      
+      // Misc
+      whitepaper: "WHITEPAPER",
+      copied: "Copied!"
+    },
+    zh: {
+      // Header elements
+      pnl: "盈亏",
+      amountSpent: "支出金额",
+      consolationPrizePool: "安慰奖池",
+      shareOfConsolationPrize: "安慰奖份额",
+      profit: "利润",
+      loss: "亏损",
+      prize: "奖金",
+      
+      // Wallet
+      connectWallet: "连接钱包",
+      payout: "支付",
+      ifYouRefer: "如果您推荐下一位买家：",
+      referFriends: "推荐朋友",
+      
+      // Main game
+      timeRemaining: "剩余时间",
+      willWin: "将赢得",
+      unless: "除非你",
+      yourTokens: "您的代币",
+      network: "网络",
+      ethereum: "以太坊",
+      takeHisPlace: "取代他的位置",
+      currentPrice: "当前价格",
+      
+      // Panels
+      recentBuys: "最近购买",
+      liveUpdates: "实时更新",
+      globalChat: "全球聊天",
+      send: "发送",
+      typeMessage: "输入消息...",
+      
+      // Bottom section
+      asSeenOn: "媒体报道",
+      about: "关于",
+      rules: "规则",
+      telegram: "电报",
+      twitter: "推特",
+      
+      // Modal content
+      connectYourWallet: "连接您的钱包",
+      connecting: "连接中...",
+      yourReferralLink: "您的推荐链接",
+      copyLink: "复制链接",
+      topReferrers: "顶级推荐人",
+      rank: "排名",
+      address: "地址",
+      earned: "获得",
+      referralExplanation1: "与朋友分享您的唯一推荐链接。当他们使用您的链接加入Band 4 Band并进行购买时，您将获得其购买金额的佣金。",
+      referralExplanation2: "顶级推荐人可以获得额外奖金和独家福利！",
+      
+      // Misc
+      whitepaper: "白皮书",
+      copied: "已复制！"
+    }
+  };
+  
+  // Get translation based on key and current language
+  function t(key) {
+    return translations[currentLanguage][key] || key;
+  }
+  
+  // Toggle language function
+  function toggleLanguage() {
+    playClickSound();
+    currentLanguage = currentLanguage === 'en' ? 'zh' : 'en';
+  }
+  
   // For backend integration - add exports for properties that will come from parent
   export let toggleAbout;
   export let toggleRules;
@@ -850,6 +980,17 @@
     </button>
   </div>
   
+  <!-- Language switcher button -->
+  <div class="language-toggle" in:fade={{ duration: 500, delay: 1000 }}>
+    <button 
+      class="language-button" 
+      on:click={toggleLanguage}
+      title={currentLanguage === 'en' ? "Switch to Chinese" : "Switch to English"}
+    >
+      <div class="language-icon">{currentLanguage === 'en' ? '🇨🇳' : '🇺🇸'}</div>
+    </button>
+  </div>
+  
   <!-- Hexagonal grid background -->
   <div class="hex-grid" bind:this={hexGrid}></div>
   
@@ -883,24 +1024,24 @@
     {#if hudElements.upperLeft.visible}
       <div class="hud-element upper-left" in:fly={{ y: -20, duration: 800 }}>
         <div class="hud-box">
-          <div class="hud-section-title">P&L</div>
+          <div class="hud-section-title">{t('pnl')}</div>
           
           {#if !playerHasBought}
             <!-- State 1: Player hasn't bought -->
-            <div class="hud-stat">Amount Spent: {totalAmountSpent}</div>
-            <div class="hud-stat">Consolation Prize Pool: {consolationPrizePool}</div>
-            <div class="hud-stat">Share of Consolation Prize: {shareOfConsolationPrize}</div>
-            <div class="hud-stat profit">Profit: $0.00</div>
+            <div class="hud-stat">{t('amountSpent')}: {totalAmountSpent}</div>
+            <div class="hud-stat">{t('consolationPrizePool')}: {consolationPrizePool}</div>
+            <div class="hud-stat">{t('shareOfConsolationPrize')}: {shareOfConsolationPrize}</div>
+            <div class="hud-stat profit">{t('profit')}: $0.00</div>
           {:else if playerIsWinning}
             <!-- State 2: Player is winning -->
-            <div class="hud-stat">Prize: {prizePool}</div>
-            <div class="hud-stat">Amount Spent: {totalAmountSpent}</div>
-            <div class="hud-stat profit">Profit: {profitLoss}</div>
+            <div class="hud-stat">{t('prize')}: {prizePool}</div>
+            <div class="hud-stat">{t('amountSpent')}: {totalAmountSpent}</div>
+            <div class="hud-stat profit">{t('profit')}: {profitLoss}</div>
           {:else}
             <!-- State 3: Player is losing -->
-            <div class="hud-stat">Amount Spent: {totalAmountSpent}</div>
-            <div class="hud-stat">Consolation Prize: {playerShareAmount}</div>
-            <div class="hud-stat loss">Loss: {profitLoss}</div>
+            <div class="hud-stat">{t('amountSpent')}: {totalAmountSpent}</div>
+            <div class="hud-stat">{t('consolationPrize')}: {playerShareAmount}</div>
+            <div class="hud-stat loss">{t('loss')}: {profitLoss}</div>
           {/if}
         </div>
       </div>
@@ -916,7 +1057,7 @@
           {#if !walletConnected}
             <button class="wallet-button" on:click={toggleWalletModal}>
               <div class="button-glow"></div>
-              <span class="wallet-button-text">CONNECT WALLET</span>
+              <span class="wallet-button-text">{t('connectWallet')}</span>
               <div class="button-brackets"></div>
             </button>
           {:else}
@@ -928,11 +1069,11 @@
             
             <!-- Referral section (visible when wallet is connected) -->
             <div class="referral-section">
-              <div class="referral-payout">PAYOUT {referralPayout}</div>
-              <div class="referral-info">IF YOU REFER THE NEXT BUYER:</div>
+              <div class="referral-payout">{t('payout')}: {referralPayout}</div>
+              <div class="referral-info">{t('ifYouRefer')}</div>
               <button class="referral-button" on:click={toggleReferralModal}>
                 <div class="button-glow"></div>
-                <span class="button-text">REFER FRIENDS</span>
+                <span class="button-text">{t('referFriends')}</span>
                 <div class="button-brackets"></div>
               </button>
             </div>
@@ -949,7 +1090,7 @@
             <img src="/B4B.png" alt="Band 4 Band Logo" />
           </a>
           <div class="logo-glow"></div>
-          <a href="/whitepaper.pdf" class="whitepaper-link" on:click|preventDefault={openWhitepaper}>WHITEPAPER</a>
+          <a href="/whitepaper.pdf" class="whitepaper-link" on:click|preventDefault={openWhitepaper}>{t('whitepaper')}</a>
         </div>
       </div>
     {/if}
@@ -968,7 +1109,7 @@
             
             <!-- Timer display -->
             <div class="timer-container">
-              <div class="timer-label">TIME REMAINING</div>
+              <div class="timer-label">{t('timeRemaining')}</div>
               <div class="timer-display">
                 <span class="time-unit">{formatTimeUnit(timeRemaining.hours)}</span>
                 <span class="time-separator">:</span>
@@ -980,7 +1121,7 @@
         
             <!-- Prize container -->
             <div class="prize-container">
-              <div class="prize-subtitle">{isCurrentUser(gameData.lastBuyer) ? "YOU" : shortenAddress(gameData.lastBuyer)} will win</div>
+              <div class="prize-subtitle">{isCurrentUser(gameData.lastBuyer) ? "YOU" : shortenAddress(gameData.lastBuyer)} {t('willWin')}</div>
               <div class="prize-value">{formattedPrizePool}</div>
      
             </div>
@@ -990,9 +1131,9 @@
               <button class="mega-button" on:click={clickButton}>
                 <div class="button-pulse"></div>
                 <div class="button-content">
-                  <div class="prize-subtitle warning">unless you</div>
-                  <span class="button-primary-text">TAKE HIS PLACE</span>
-                  <span class="button-secondary-text">CURRENT PRICE: {buttonPrice}</span>
+                  <div class="prize-subtitle warning">{t('unless')}</div>
+                  <span class="button-primary-text">{t('takeHisPlace')}</span>
+                  <span class="button-secondary-text">{t('currentPrice')}: {buttonPrice}</span>
                 </div>
               </button>
             </div>
@@ -1000,12 +1141,12 @@
             <!-- Player stats -->
             <div class="player-stats">
               <div class="stat-item">
-                <div class="stat-label">YOUR TOKENS</div>
+                <div class="stat-label">{t('yourTokens')}</div>
                 <div class="stat-value">{playerState.tokenBalance || playerTokens}</div>
               </div>
               <div class="stat-item">
-                <div class="stat-label">NETWORK</div>
-                <div class="stat-value">ETHEREUM</div>
+                <div class="stat-label">{t('network')}</div>
+                <div class="stat-value">{t('ethereum')}</div>
               </div>
             </div>
 
@@ -1019,7 +1160,7 @@
       <div class="hud-element recent-buys" in:fly={{ x: -30, duration: 800 }}>
         <div class="hud-box panel">
           <div class="panel-header">
-            <div class="panel-title">RECENT BUYS</div>
+            <div class="panel-title">{t('recentBuys')}</div>
             <div class="panel-controls">
               <div class="panel-control"></div>
               <div class="panel-control"></div>
@@ -1038,7 +1179,7 @@
           </div>
           <div class="panel-footer">
             <div class="pulse-dot"></div>
-            <span>LIVE UPDATES</span>
+            <span>{t('liveUpdates')}</span>
           </div>
         </div>
       </div>
@@ -1049,7 +1190,7 @@
       <div class="hud-element chatbox" class:expanded={chatboxExpanded} in:fly={{ x: 30, duration: 800 }}>
         <div class="hud-box panel">
           <div class="panel-header" on:click={toggleChatbox}>
-            <div class="panel-title">GLOBAL CHAT</div>
+            <div class="panel-title">{t('globalChat')}</div>
             <div class="panel-controls">
               <div class="panel-control"></div>
               <div class="panel-control">{chatboxExpanded ? '−' : '+'}</div>
@@ -1073,11 +1214,11 @@
               <input 
                 type="text" 
                 bind:value={chatInput} 
-                placeholder="Type a message..." 
+                placeholder={t('typeMessage')} 
                 class="chat-input"
                 on:keydown={(e) => e.key === 'Enter' && sendMessage()}
               />
-              <button class="chat-send" on:click={sendMessage}>SEND</button>
+              <button class="chat-send" on:click={sendMessage}>{t('send')}</button>
             </div>
           {/if}
         </div>
@@ -1087,7 +1228,7 @@
     <!-- Featured on logos section -->
     {#if hudElements.navOptions.visible}
       <div class="hud-element featured-logos" in:fade={{ duration: 1000, delay: 1500 }}>
-        <div class="featured-title">AS SEEN ON</div>
+        <div class="featured-title">{t('asSeenOn')}</div>
         <div class="logos-container">
           <div class="logo-item">YAHOO FINANCE</div>
           <div class="logo-item">VICE</div>
@@ -1102,25 +1243,25 @@
       <div class="hud-element nav-options" in:fly={{ y: 30, duration: 800 }}>
         <div class="nav-button" on:click={toggleAbout}>
           <div class="button-glow"></div>
-          <span class="button-text">ABOUT</span>
+          <span class="button-text">{t('about')}</span>
           <div class="button-brackets"></div>
         </div>
         
         <div class="nav-button" on:click={toggleRules}>
           <div class="button-glow"></div>
-          <span class="button-text">RULES</span>
+          <span class="button-text">{t('rules')}</span>
           <div class="button-brackets"></div>
         </div>
         
         <div class="nav-button" on:click={openTelegram}>
           <div class="button-glow"></div>
-          <span class="button-text">TELEGRAM</span>
+          <span class="button-text">{t('telegram')}</span>
           <div class="button-brackets"></div>
         </div>
         
         <div class="nav-button" on:click={openTwitter}>
           <div class="button-glow"></div>
-          <span class="button-text">TWITTER</span>
+          <span class="button-text">{t('twitter')}</span>
           <div class="button-brackets"></div>
         </div>
       </div>
@@ -1139,7 +1280,7 @@
   <div class="modal-overlay" on:click={toggleWalletModal} transition:fade={{ duration: 200 }}>
     <div class="wallet-modal" on:click|stopPropagation transition:scale={{ duration: 300, easing: quintOut, start: 0.8 }}>
       <button class="close-button" on:click={toggleWalletModal}>×</button>
-      <h2>Connect Your Wallet</h2>
+      <h2>{t('connectYourWallet')}</h2>
       <div class="wallet-options">
         {#each walletOptions as wallet}
           <button 
@@ -1155,7 +1296,7 @@
       {#if connectingWallet}
         <div class="connecting-indicator">
           <div class="loader"></div>
-          <span>Connecting...</span>
+          <span>{t('connecting')}</span>
         </div>
       {/if}
     </div>
@@ -1167,22 +1308,22 @@
   <div class="modal-overlay" on:click={toggleReferralModal} transition:fade={{ duration: 200 }}>
     <div class="referral-modal" on:click|stopPropagation transition:scale={{ duration: 300, easing: quintOut, start: 0.8 }}>
       <button class="close-button" on:click={toggleReferralModal}>×</button>
-      <h2>Your Referral Link</h2>
+      <h2>{t('yourReferralLink')}</h2>
       
       <!-- Referral Link Section -->
       <div class="referral-link-container">
         <input type="text" readonly value={referralLink} class="referral-link-input" />
-        <button class="copy-button" on:click={copyReferralLink}>COPY LINK</button>
+        <button class="copy-button" on:click={copyReferralLink}>{t('copyLink')}</button>
       </div>
       
       <!-- Leaderboard Section -->
       <div class="referral-leaderboard">
-        <h3>TOP REFERRERS</h3>
+        <h3>{t('topReferrers')}</h3>
         <div class="leaderboard-table">
           <div class="leaderboard-header">
-            <div class="column">RANK</div>
-            <div class="column">ADDRESS</div>
-            <div class="column">EARNED</div>
+            <div class="column">{t('rank')}</div>
+            <div class="column">{t('address')}</div>
+            <div class="column">{t('earned')}</div>
           </div>
           {#each referralLeaderboard as referrer, index}
             <div class="leaderboard-row">
@@ -1196,8 +1337,8 @@
       
       <!-- Explanation Section -->
       <div class="referral-explanation">
-        <p>Share your unique referral link with friends. When they use your link to join Band 4 Band and make a purchase, you'll earn a commission of their purchase amount.</p>
-        <p>Top referrers can earn additional bonuses and exclusive perks!</p>
+        <p>{t('referralExplanation1')}</p>
+        <p>{t('referralExplanation2')}</p>
       </div>
     </div>
   </div>
@@ -3452,5 +3593,76 @@
 
     opacity: 1 !important;
     z-index: 100 !important;
+  }
+
+  /* Language switcher button */
+  .language-toggle {
+    position: fixed;
+    top: 15px;
+    left: 70%;
+    transform: translateX(-70%);
+    z-index: 50;
+    pointer-events: auto;
+  }
+  
+  .language-button {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 30, 0.7);
+    border: 1px solid rgba(0, 255, 255, 0.5);
+    color: #00FFFF;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    overflow: hidden;
+    padding: 0;
+  }
+  
+  .language-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+  }
+  
+  .language-icon {
+    font-size: 18px;
+    transition: transform 0.3s ease;
+  }
+  
+  .language-button:hover .language-icon {
+    transform: scale(1.1);
+  }
+  
+  /* Mobile adjustments for language button */
+  @media (max-width: 768px) {
+    .language-toggle {
+      top: 10px;
+    }
+    
+    .language-button {
+      width: 32px;
+      height: 32px;
+    }
+    
+    .language-icon {
+      font-size: 16px;
+    }
+  }
+  
+  @media (max-width: 350px) {
+    .language-toggle {
+      top: 6px;
+    }
+    
+    .language-button {
+      width: 28px;
+      height: 28px;
+    }
+    
+    .language-icon {
+      font-size: 14px;
+    }
   }
 </style> 
