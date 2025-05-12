@@ -37,6 +37,11 @@
       takeHisPlace: "TAKE HIS PLACE",
       currentPrice: "CURRENT PRICE",
       
+      // New UI states
+      youAreWinning: "YOU ARE WINNING",
+      maintainYourLead: "MAINTAIN YOUR LEAD",
+      youLostTheLead: "YOU LOST THE LEAD!",
+      
       // Panels
       recentBuys: "RECENT BUYS",
       liveUpdates: "LIVE UPDATES",
@@ -92,6 +97,11 @@
       ethereum: "以太坊",
       takeHisPlace: "取代他的位置",
       currentPrice: "当前价格",
+      
+      // New UI states
+      youAreWinning: "您正在领先",
+      maintainYourLead: "保持您的领先地位",
+      youLostTheLead: "您失去了领先地位！",
       
       // Panels
       recentBuys: "最近购买",
@@ -204,6 +214,140 @@
   // Mock data for block information and participants
   let currentBlock = 16842103;
   let participants = 4291;
+  
+  // Enhanced demo simulation variables
+  let simulationActive = false;
+  let simulationInterval;
+  let simulationStep = 0;
+  let simulationBuys = [];
+  let simulationBuyIndex = 0;
+  let simulationSpeed = 8000; // ms between buys
+  let simulationStarted = false;
+  
+  // Generate realistic-looking wallet addresses
+  function generateWalletAddress() {
+    return '0x' + Array(40).fill(0).map(() => 
+      Math.floor(Math.random() * 16).toString(16)
+    ).join('');
+  }
+  
+  // Generate 40-50 simulated buys with random time intervals
+  function generateSimulatedBuys() {
+    const buyCount = Math.floor(Math.random() * 11) + 40; // 40-50 buys
+    const buys = [];
+    
+    for (let i = 0; i < buyCount; i++) {
+      // Generate random buy amount between 0.05 and 1.5 ETH
+      const amount = (Math.random() * 1.45 + 0.05).toFixed(3);
+      
+      // Generate random wallet address
+      const address = generateWalletAddress();
+      
+      // Add to buys array
+      buys.push({
+        address,
+        amount,
+        shortAddress: shortenAddress(address)
+      });
+    }
+    
+    return buys;
+  }
+  
+  // Start simulation
+  function startBuySimulation() {
+    if (simulationActive) return;
+    
+    simulationActive = true;
+    simulationStarted = true;
+    simulationBuys = generateSimulatedBuys();
+    simulationBuyIndex = 0;
+    
+    // Set player's initial state
+    playerHasBought = false;
+    playerIsWinning = false;
+    
+    simulationInterval = setInterval(() => {
+      processBuySimulation();
+    }, simulationSpeed);
+  }
+  
+  // Process next simulation step
+  function processBuySimulation() {
+    if (simulationBuyIndex >= simulationBuys.length) {
+      // Restart simulation
+      simulationBuyIndex = 0;
+      simulationBuys = generateSimulatedBuys();
+    }
+    
+    const currentBuy = simulationBuys[simulationBuyIndex];
+    
+    // Increment prize pool with each simulated buy
+    const currentPrizeValue = parseFloat(gameData.prizePool.replace(/[^0-9.]/g, '') || "10000000");
+    const increment = Math.random() * 15000 + 5000; // Random increment between 5,000 and 20,000
+    const newPrizeValue = currentPrizeValue + increment;
+    gameData.prizePool = newPrizeValue.toFixed(2);
+    
+    // Update game state
+    lastBuyer = currentBuy.shortAddress;
+    gameData.lastBuyer = currentBuy.address;
+    
+    // Add to recent buys
+    const newBuy = {
+      address: currentBuy.shortAddress,
+      amount: `${currentBuy.amount} ETH`,
+      timestamp: Date.now()
+    };
+    
+    recentBuys = [newBuy, ...recentBuys.slice(0, 3)];
+    
+    // Update simulation step and index
+    simulationStep++;
+    simulationBuyIndex++;
+    
+    // Update player state based on game scenario
+    if (playerHasBought && playerIsWinning) {
+      // Scenario 3: Player was winning but now lost the lead
+      playerIsWinning = false;
+      
+      // Auto-activate anxiety mode
+      if (!anxietyMode) {
+        toggleAnxietyMode();
+      }
+    }
+    
+    // Add a random chat message occasionally
+    if (Math.random() > 0.7) {
+      const chatMessages = [
+        "Just bought in!",
+        "Let's go!",
+        "This is going to be huge!",
+        "I'm feeling lucky!",
+        "My strategy is working!",
+        "Who else is from Twitter?",
+        "Going all in on this one!",
+        "This project is going to moon 🚀",
+        "Hope I win this time!",
+        "I need this win!"
+      ];
+      
+      const randomMessage = chatMessages[Math.floor(Math.random() * chatMessages.length)];
+      
+      addChatMessage({
+        sender: currentBuy.shortAddress,
+        message: randomMessage,
+        timestamp: Date.now()
+      });
+    }
+  }
+  
+  // Stop simulation
+  function stopBuySimulation() {
+    if (!simulationActive) return;
+    
+    clearInterval(simulationInterval);
+    simulationActive = false;
+  }
   
   // Mock recent buys data (this would normally come from your backend)
   let recentBuys = [
@@ -508,6 +652,22 @@
   // Click button function with sound
   function clickButton() {
     playClickSound();
+    
+    // If player is already winning, just add to the prize pool
+    if (playerHasBought && playerIsWinning) {
+      // Increment the prize pool by a random amount 
+      const currentPrizeValue = parseFloat(gameData.prizePool.replace(/[^0-9.]/g, '') || "10000000");
+      const increment = Math.random() * 100000 + 50000; // Larger increment for manual clicks
+      const newPrizeValue = currentPrizeValue + increment;
+      gameData.prizePool = newPrizeValue.toFixed(2);
+      
+      // Trigger effect
+      triggerShockwave();
+      
+      return;
+    }
+    
+    // Otherwise proceed with normal buy transaction
     submitBuyTransaction();
   }
   
@@ -568,6 +728,13 @@
     triggerGlitch();
     bootupSequence();
     
+    // Start the buy simulation after a delay
+    setTimeout(() => {
+      if (!playerHasBought) {
+        startBuySimulation();
+      }
+    }, 5000);
+    
     // Check if mobile on load
     if (typeof checkMobile === 'function') {
       checkMobile();
@@ -609,6 +776,7 @@
       clearInterval(timeInterval);
       clearInterval(countdown);
       cancelAnimationFrame(animationFrame);
+      stopBuySimulation();
       
       // Close WebSocket
       if (ws) {
@@ -776,11 +944,20 @@
   }).replace(/\//g, '.');
   
   // Format prize pool 
-  $: formattedPrizePool = gameData?.prizePool ? `$${parseFloat(gameData.prizePool).toLocaleString()}` : prizePool;
+  $: formattedPrizePool = (() => {
+    // Extract numeric value from either source
+    const value = gameData?.prizePool 
+      ? parseFloat(String(gameData.prizePool).replace(/[^0-9.]/g, '')) 
+      : parseFloat(String(prizePool).replace(/[^0-9.]/g, ''));
+    
+    // Format with comma separators and fixed decimal places
+    return `$${value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+  })();
   
   // Add a log statement to help debug
   $: if (hudElements.gameContent.visible) {
     console.log('Game content is visible');
+    console.log('Current prize pool:', formattedPrizePool, 'Raw prize pool:', gameData.prizePool);
   }
   
   // Backend Integration Functions
@@ -917,6 +1094,48 @@
     }
     
     try {
+      // Increment the prize pool by a random amount to simulate growth
+      const currentPrizeValue = parseFloat(gameData.prizePool.replace(/[^0-9.]/g, '') || "10000000");
+      const increment = Math.random() * 50000 + 20000; // Random increment between 20,000 and 70,000
+      const newPrizeValue = currentPrizeValue + increment;
+      gameData.prizePool = newPrizeValue.toFixed(2);
+      
+      // Update player state for demo
+      playerHasBought = true;
+      playerIsWinning = true; // Player becomes the leader
+      
+      // Ensure anxiety mode is off when player is winning
+      if (anxietyMode) {
+        toggleAnxietyMode();
+      }
+      
+      // Update last buyer
+      lastBuyer = shortenAddress(playerState.address);
+      gameData.lastBuyer = playerState.address;
+      
+      // Add to recent buys
+      const newBuy = {
+        address: shortenAddress(playerState.address),
+        amount: '0.5 ETH',
+        timestamp: Date.now()
+      };
+      
+      recentBuys = [newBuy, ...recentBuys.slice(0, 3)];
+      
+      // Add random amount to the total spent
+      totalAmountSpent = `$${(parseFloat(totalAmountSpent.replace(/[^0-9.]/g, '') || 0) + 1000).toFixed(2)}`;
+      
+      // Only start simulation if it's not already running
+      if (!simulationStarted) {
+        setTimeout(() => {
+          startBuySimulation();
+        }, 5000); // Start the simulation 5 seconds after first buy
+      }
+      
+      // Trigger effects
+      triggerShockwave();
+      
+      // Continue with the actual transaction logic
       const result = await gameService.submitBuyTransaction(playerState.address);
       
       // Update game and player state with the result
@@ -927,9 +1146,6 @@
       if (result.playerData) {
         updatePlayerState(result.playerData);
       }
-      
-      // Trigger effects
-      triggerShockwave();
       
     } catch (error) {
       console.error('Error submitting buy:', error);
@@ -961,6 +1177,11 @@
       console.error('Error sending message:', error);
     }
   }
+
+  // Add a function to add chat messages
+  function addChatMessage(message) {
+    chatMessages = [message, ...chatMessages.slice(0, 3)];
+  }
 </script>
 
 <div class="hud-container" class:glitch={glitchActive} class:anxiety-mode={anxietyMode}>
@@ -968,7 +1189,7 @@
   <audio bind:this={bgMusic} loop preload="auto" src="/audio/calm.mp3"></audio>
   <audio bind:this={clickSound} preload="auto" src="/audio/click-sound.mp3"></audio>
   
-  <!-- Anxiety mode toggle button -->
+<!--
   <div class="anxiety-toggle" in:fade={{ duration: 500, delay: 1000 }}>
     <button 
       class="anxiety-button" 
@@ -978,7 +1199,7 @@
     >
       <div class="anxiety-icon">{anxietyMode ? '😰' : '😌'}</div>
     </button>
-  </div>
+  </div> -->
   
   <!-- Language switcher button -->
   <div class="language-toggle" in:fade={{ duration: 500, delay: 1000 }}>
@@ -1128,12 +1349,27 @@
           
             <!-- Main button -->
             <div class="button-container">
-              <button class="mega-button" on:click={clickButton}>
+              <button class="mega-button" on:click={clickButton} 
+                class:winning={playerHasBought && playerIsWinning}
+                class:losing={playerHasBought && !playerIsWinning}>
                 <div class="button-pulse"></div>
                 <div class="button-content">
-                  <div class="prize-subtitle warning">{t('unless')}</div>
-                  <span class="button-primary-text">{t('takeHisPlace')}</span>
-                  <span class="button-secondary-text">{t('currentPrice')}: {buttonPrice}</span>
+                  {#if !playerHasBought}
+                    <!-- Scenario 1: Player hasn't bought -->
+                    <span class="prize-subtitle warning">{t('unless')}</span>
+                    <span class="button-primary-text">{t('takeHisPlace')}</span>
+                    <span class="button-secondary-text">{t('currentPrice')}: {buttonPrice}</span>
+                  {:else if playerIsWinning}
+                    <!-- Scenario 2: Player is winning -->
+                    <span class="win-status">{t('youAreWinning')}</span>
+                    <span class="prize-value-mini">{formattedPrizePool}</span>
+                    <span class="button-secondary-text">{t('maintainYourLead')}</span>
+                  {:else}
+                    <!-- Scenario 3: Player is losing -->
+                    <span class="prize-subtitle danger">{t('youLostTheLead')}</span>
+                    <span class="button-primary-text urgent">{t('takeHisPlace')}</span>
+                    <span class="button-secondary-text">{t('currentPrice')}: {buttonPrice}</span>
+                  {/if}
                 </div>
               </button>
             </div>
@@ -3367,6 +3603,51 @@
     box-shadow: 0 0 20px rgba(255, 0, 85, 0.5);
   }
   
+  /* Winning state */
+  .mega-button.winning {
+    border: 2px solid #00FF80;
+    background-color: rgba(0, 100, 50, 0.4);
+    box-shadow: 0 0 30px rgba(0, 255, 128, 0.7);
+  }
+  
+  .mega-button.winning .button-pulse {
+    background: radial-gradient(
+      circle,
+      rgba(0, 255, 128, 0.5) 0%,
+      transparent 70%
+    );
+  }
+  
+  /* Losing state */
+  .mega-button.losing {
+    border: 2px solid #FF0000;
+    background-color: rgba(100, 0, 0, 0.5);
+    box-shadow: 0 0 30px rgba(255, 0, 0, 0.7);
+    animation: pulse-urgent 1s infinite;
+  }
+  
+  .mega-button.losing .button-pulse {
+    background: radial-gradient(
+      circle,
+      rgba(255, 0, 0, 0.6) 0%,
+      transparent 70%
+    );
+    opacity: 0.6;
+    animation: pulse-fast 1s infinite;
+  }
+  
+  @keyframes pulse-urgent {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+  }
+  
+  @keyframes pulse-fast {
+    0% { opacity: 0.2; transform: translate(-50%, -50%) scale(0.8); }
+    50% { opacity: 0.7; transform: translate(-50%, -50%) scale(1.1); }
+    100% { opacity: 0.2; transform: translate(-50%, -50%) scale(0.8); }
+  }
+  
   .mega-button:before {
     content: '';
     position: absolute;
@@ -3420,6 +3701,47 @@
     margin-bottom: 5px;
     display: block;
     letter-spacing: 1px;
+  }
+  
+  .button-primary-text.urgent {
+    color: #FF0000;
+    text-shadow: 0 0 15px rgba(255, 0, 0, 0.8);
+    animation: text-flash 0.8s infinite alternate;
+  }
+  
+  @keyframes text-flash {
+    0% { text-shadow: 0 0 10px rgba(255, 0, 0, 0.8); }
+    100% { text-shadow: 0 0 20px rgba(255, 0, 0, 1), 0 0 30px rgba(255, 0, 0, 0.8); }
+  }
+  
+  .win-status {
+    font-size: 24px;
+    font-weight: bold;
+    color: #00FF80;
+    text-shadow: 0 0 15px rgba(0, 255, 128, 0.8);
+    margin-bottom: 5px;
+    display: block;
+    letter-spacing: 1px;
+  }
+  
+  .prize-value-mini {
+    font-size: 30px;
+    font-weight: bold;
+    color: #00FF80;
+    text-shadow: 0 0 15px rgba(0, 255, 128, 0.9);
+    margin-bottom: 5px;
+    display: block;
+    letter-spacing: 1px;
+  }
+  
+  .prize-subtitle.danger {
+    color: #FF0000;
+    text-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
+    font-size: 16px;
+    margin-top: 5px;
+    text-transform: uppercase;
+    font-weight: bold;
+    animation: text-flash 0.8s infinite alternate;
   }
   
   .button-secondary-text {
