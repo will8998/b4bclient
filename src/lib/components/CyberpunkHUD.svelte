@@ -1,12 +1,50 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { fly, fade, scale } from 'svelte/transition';
   import { quintOut } from 'svelte/easing';
   import { triggerShockwave } from './GridBackground.svelte';
   import Asteroids from './Asteroids.svelte';
+  import gameService from '$lib/api/gameService';
   
+  // For backend integration - add exports for properties that will come from parent
   export let toggleAbout;
   export let toggleRules;
+  export let apiEndpoint = '/api'; // API endpoint configuration
+  export let websocketEndpoint = 'wss://your-backend.com/ws'; // WebSocket endpoint
+  export let contractAddress = '0x0000000000000000000000000000000000000000'; // Smart contract address
+  export let useSampleData = true; // Use sample data for development
+  
+  // Configure game service
+  gameService.apiEndpoint = apiEndpoint;
+  gameService.useSampleData = useSampleData;
+  
+  // WebSocket connection for real-time updates
+  let ws;
+  let wsConnected = false;
+  
+  // Backend API response data with defaults
+  let gameData = {
+    prizePool: "10000000.00",
+    consolationPrizePool: "1000000.00",
+    timeRemaining: { hours: 23, minutes: 45, seconds: 12 },
+    lastBuyer: "0x0000000000000000000000000000000000000000",
+    totalParticipants: 0,
+    currentPrice: "1000.00",
+    recentBuys: []
+  };
+  
+  // Player state from backend - will be updated on wallet connection/API calls
+  let playerState = {
+    address: "",
+    isConnected: false,
+    tokenBalance: "0.0",
+    amountSpent: "0.00",
+    isCurrentLeader: false,
+    shareOfConsolation: "0.00",
+    sharePercentage: "0%",
+    profit: "0.00",
+    isInProfit: false
+  };
   
   // First declaring the needed variables that were missing
   // Anxiety mode toggle
@@ -64,6 +102,14 @@
   let referralIncome = "$0.00";
   let countdown;
   
+  // Player P&L state
+  let playerHasBought = false;
+  let playerIsWinning = false;
+  let consolationPrizePool = "$1,000,000";
+  let shareOfConsolationPrize = "0%";
+  let playerShareAmount = "$0.00";
+  let profitLoss = "$0.00";
+  
   // Add animation control state
   let animationsPaused = false;
   
@@ -93,6 +139,8 @@
     chatbox: { visible: false, delay: 1600 },
     gameContent: { visible: false, delay: 1800 }
   };
+  
+  const dispatch = createEventDispatcher();
   
   // Function to initialize audio after user interaction
   function initializeAudio() {
@@ -170,6 +218,7 @@
       asteroidColors = ['#FF0000', '#FF3333', '#FF6666', '#FF9999'];
       asteroidCount = 150; // More asteroids in anxiety mode
       switchBackgroundMusic('anxiety');
+      dispatch('pauseBgMusic');
     } else {
       asteroidColors = ['#00FFFF', '#00CCFF', '#00AAFF', '#0088FF']; 
       asteroidCount = 100; // Normal amount in standard mode
@@ -280,6 +329,19 @@
     return address.slice(0, 6) + '...' + address.slice(-4);
   }
   
+  // Check if an address is the current user
+  function isCurrentUser(address) {
+    if (!address || !playerState.address) return false;
+    return address.toLowerCase() === playerState.address.toLowerCase();
+  }
+  
+  // Format address for display
+  function formatDisplayAddress(address) {
+    if (!address) return '';
+    if (isCurrentUser(address)) return 'YOU';
+    return shortenAddress(address);
+  }
+  
   // Additional functions for new buttons with sound
   function openTelegram() {
     playClickSound();
@@ -307,19 +369,6 @@
     showReferralModal = !showReferralModal;
   }
   
-  // Function to send chat message with sound
-  function sendMessage() {
-    playClickSound();
-    if (chatInput.trim()) {
-      chatMessages = [...chatMessages, {
-        sender: 'YOU',
-        message: chatInput,
-        timestamp: Date.now()
-      }];
-      chatInput = '';
-    }
-  }
-  
   // Function to toggle chatbox expanded state with sound
   function toggleChatbox() {
     playClickSound();
@@ -329,23 +378,7 @@
   // Click button function with sound
   function clickButton() {
     playClickSound();
-    // In a real implementation, this would trigger a blockchain transaction
-    lastBuyer = "YOU";
-    // Update prize pool with $ instead of ETH
-    prizePool = "$" + (parseFloat(prizePool.replace(/[^0-9.]/g, '')) + 1000).toFixed(2);
-    playerTokens = (parseFloat(playerTokens) + 0.05).toFixed(2);
-    
-    // Update total amount spent
-    totalAmountSpent = "$" + (parseFloat(totalAmountSpent.replace(/[^0-9.]/g, '')) + 1000).toFixed(2);
-    
-    // Update consolation prize (5% of spent amount)
-    consolationPrize = "$" + (parseFloat(totalAmountSpent.replace(/[^0-9.]/g, '')) * 0.05).toFixed(2);
-    
-    // Reset timer for demo purposes
-    timeRemaining = { hours: 23, minutes: 59, seconds: 59 };
-    
-    // Trigger shockwave effect
-    triggerShockwave();
+    submitBuyTransaction();
   }
   
   // Copy referral link with sound
@@ -386,62 +419,79 @@
   }
   
   onMount(() => {
+    // Initial data load
+    loadGameData();
+    
+    // Start websocket connection
+    initWebSocket();
+    
     // Update time display
     timeInterval = setInterval(() => {
       time = new Date();
     }, 1000);
     
-    // Game timer update
+    // Game timer update - this acts as a backup timer when WebSocket fails
     countdown = setInterval(updateTimer, 1000);
     
     // Initialize and animate
     initHexGrid();
     triggerGlitch();
     bootupSequence();
-    updateBlockNumber();
-    simulateReferrals();
     
     // Check if mobile on load
-    checkMobile();
+    if (typeof checkMobile === 'function') {
+      checkMobile();
+    }
     
     // Handle resize
     window.addEventListener('resize', () => {
       initHexGrid();
-      checkMobile();
+      if (typeof checkMobile === 'function') {
+        checkMobile();
+      }
     });
     
-    // Add touch event listeners
-    document.addEventListener('touchstart', handleTouchStart, { passive: true });
-    document.addEventListener('touchmove', handleTouchMove, { passive: true });
-    document.addEventListener('touchend', handleTouchEnd, { passive: true });
-    
-    // Initialize audio on first user interaction
-    document.addEventListener('click', initializeAudio, { once: true });
-    document.addEventListener('touchstart', initializeAudio, { once: true });
+    // Check for existing wallet connection
+    if (typeof window.ethereum !== 'undefined') {
+      window.ethereum.request({ method: 'eth_accounts' })
+        .then(accounts => {
+          if (accounts.length > 0) {
+            handleSuccessfulConnection(accounts[0]);
+            loadPlayerData(accounts[0]);
+          }
+        })
+        .catch(err => console.error('Error checking for existing wallet connection:', err));
+        
+      // Listen for account changes
+      window.ethereum.on('accountsChanged', (accounts) => {
+        if (accounts.length === 0) {
+          // User disconnected wallet
+          disconnectWallet();
+        } else {
+          // Account changed
+          handleSuccessfulConnection(accounts[0]);
+          loadPlayerData(accounts[0]);
+        }
+      });
+    }
     
     return () => {
       clearInterval(timeInterval);
       clearInterval(countdown);
       cancelAnimationFrame(animationFrame);
+      
+      // Close WebSocket
+      if (ws) {
+        ws.close();
+      }
+      
+      // Remove window event listeners
       window.removeEventListener('resize', initHexGrid);
-      document.removeEventListener('touchstart', handleTouchStart);
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleTouchEnd);
       
-      // Stop all audio when component is destroyed
-      if (bgMusic) {
-        bgMusic.pause();
-        bgMusic.src = '';
+      // Remove ethereum event listeners
+      if (typeof window.ethereum !== 'undefined') {
+        window.ethereum.removeAllListeners();
       }
-      
-      if (clickSound) {
-        clickSound.pause();
-        clickSound.src = '';
-      }
-      
-      // Remove event listeners
-      document.removeEventListener('click', initializeAudio);
-      document.removeEventListener('touchstart', initializeAudio);
     };
   });
   
@@ -497,7 +547,11 @@
       // Staggered appearance of HUD elements
       Object.keys(hudElements).forEach(key => {
         setTimeout(() => {
-          hudElements[key].visible = true;
+          // Update the visible property and trigger reactivity by reassigning
+          hudElements = {
+            ...hudElements,
+            [key]: { ...hudElements[key], visible: true }
+          };
           
           // Once all elements are visible, mark game content as ready
           if (key === 'gameContent') {
@@ -590,9 +644,196 @@
     month: '2-digit',
     day: '2-digit'
   }).replace(/\//g, '.');
+  
+  // Format prize pool 
+  $: formattedPrizePool = gameData?.prizePool ? `$${parseFloat(gameData.prizePool).toLocaleString()}` : prizePool;
+  
+  // Add a log statement to help debug
+  $: if (hudElements.gameContent.visible) {
+    console.log('Game content is visible');
+  }
+  
+  // Backend Integration Functions
+  
+  // Initialize WebSocket connection
+  async function initWebSocket() {
+    try {
+      ws = await gameService.initWebSocket(websocketEndpoint, (event) => {
+        // Handle incoming messages
+        try {
+          const data = JSON.parse(event.data);
+          handleWebSocketMessage(data);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      });
+      
+      wsConnected = true;
+      
+      // Subscribe to player updates if connected
+      if (playerState.isConnected) {
+        subscribeToPlayerUpdates(playerState.address);
+      }
+    } catch (error) {
+      console.error('Failed to initialize WebSocket:', error);
+      wsConnected = false;
+    }
+  }
+  
+  // Handle incoming WebSocket messages
+  function handleWebSocketMessage(data) {
+    if (!data) return;
+    
+    if (data.type === 'game_update') {
+      // Update game state
+      updateGameData(data.gameData);
+    } else if (data.type === 'player_update' && data.address === playerState.address) {
+      // Update player state
+      updatePlayerState(data.playerData);
+    } else if (data.type === 'new_buy') {
+      // Add to recent buys
+      addRecentBuy(data.buyData);
+    } else if (data.type === 'chat_message') {
+      // Add to chat
+      addChatMessage(data.chatData);
+    }
+  }
+  
+  // Subscribe to player-specific updates
+  function subscribeToPlayerUpdates(address) {
+    if (!wsConnected || !address) return;
+    
+    if (ws) {
+      ws.send(JSON.stringify({
+        action: 'subscribe',
+        address: address
+      }));
+    }
+  }
+  
+  // Load game data from API
+  async function loadGameData() {
+    try {
+      const data = await gameService.getGameState();
+      updateGameData(data);
+    } catch (error) {
+      console.error('Error loading game data:', error);
+    }
+  }
+  
+  // Load player data from API
+  async function loadPlayerData(address) {
+    if (!address) return;
+    
+    try {
+      const data = await gameService.getPlayerData(address);
+      updatePlayerState(data);
+    } catch (error) {
+      console.error('Error loading player data:', error);
+    }
+  }
+  
+  // Update game data from API response
+  function updateGameData(data) {
+    if (!data) return;
+    
+    gameData = {
+      ...gameData,
+      ...data
+    };
+    
+    // Update derived values
+    if (data.recentBuys) {
+      // Convert to our format
+      const formattedBuys = data.recentBuys.map(buy => ({
+        address: shortenAddress(buy.address),
+        amount: `${buy.amount} ETH`,
+        timestamp: buy.timestamp
+      }));
+      gameData.recentBuys = formattedBuys;
+    }
+    
+    // Update timer if it came from backend
+    if (data.timeRemaining) {
+      timeRemaining = data.timeRemaining;
+    }
+    
+    // Check if player is the leader
+    if (playerState.address && data.lastBuyer) {
+      playerState.isCurrentLeader = playerState.address.toLowerCase() === data.lastBuyer.toLowerCase();
+    }
+  }
+  
+  // Update player state from API response
+  function updatePlayerState(data) {
+    if (!data) return;
+    
+    playerState = {
+      ...playerState,
+      ...data
+    };
+    
+    // Update UI based on player state
+    if (playerState.amountSpent && parseFloat(playerState.amountSpent) > 0) {
+      playerHasBought = true;
+    }
+  }
+  
+  // Submit a buy transaction
+  async function submitBuyTransaction() {
+    if (!playerState.isConnected) {
+      toggleWalletModal();
+      return;
+    }
+    
+    try {
+      const result = await gameService.submitBuyTransaction(playerState.address);
+      
+      // Update game and player state with the result
+      if (result.gameData) {
+        updateGameData(result.gameData);
+      }
+      
+      if (result.playerData) {
+        updatePlayerState(result.playerData);
+      }
+      
+      // Trigger effects
+      triggerShockwave();
+      
+    } catch (error) {
+      console.error('Error submitting buy:', error);
+      // Show error message
+    }
+  }
+  
+  // Send chat message
+  async function sendMessage() {
+    playClickSound();
+    if (!chatInput.trim() || !playerState.isConnected) return;
+    
+    try {
+      // Send to backend
+      await gameService.sendChatMessage({
+        address: playerState.address,
+        message: chatInput
+      });
+      
+      // Add message locally
+      chatMessages = [...chatMessages, {
+        sender: shortenAddress(playerState.address),
+        message: chatInput,
+        timestamp: Date.now()
+      }];
+      
+      chatInput = '';
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  }
 </script>
 
-<div class="hud-container" class:glitch={glitchActive} class:anxiety-mode={anxietyMode} class:shake={anxietyMode}>
+<div class="hud-container" class:glitch={glitchActive} class:anxiety-mode={anxietyMode}>
   <!-- Audio elements -->
   <audio bind:this={bgMusic} loop preload="auto" src="/audio/calm.mp3"></audio>
   <audio bind:this={clickSound} preload="auto" src="/audio/click-sound.mp3"></audio>
@@ -642,11 +883,25 @@
     {#if hudElements.upperLeft.visible}
       <div class="hud-element upper-left" in:fly={{ y: -20, duration: 800 }}>
         <div class="hud-box">
-         
-          <div class="hud-stat">TOTAL AMOUNT SPENT: {totalAmountSpent}</div>
-          <div class="hud-stat">CONSOLATION PRIZE: {consolationPrize}</div>
-          <div class="hud-stat">REFERRAL INCOME: {referralIncome}</div>
-
+          <div class="hud-section-title">P&L</div>
+          
+          {#if !playerHasBought}
+            <!-- State 1: Player hasn't bought -->
+            <div class="hud-stat">Amount Spent: {totalAmountSpent}</div>
+            <div class="hud-stat">Consolation Prize Pool: {consolationPrizePool}</div>
+            <div class="hud-stat">Share of Consolation Prize: {shareOfConsolationPrize}</div>
+            <div class="hud-stat profit">Profit: $0.00</div>
+          {:else if playerIsWinning}
+            <!-- State 2: Player is winning -->
+            <div class="hud-stat">Prize: {prizePool}</div>
+            <div class="hud-stat">Amount Spent: {totalAmountSpent}</div>
+            <div class="hud-stat profit">Profit: {profitLoss}</div>
+          {:else}
+            <!-- State 3: Player is losing -->
+            <div class="hud-stat">Amount Spent: {totalAmountSpent}</div>
+            <div class="hud-stat">Consolation Prize: {playerShareAmount}</div>
+            <div class="hud-stat loss">Loss: {profitLoss}</div>
+          {/if}
         </div>
       </div>
     {/if}
@@ -701,57 +956,57 @@
     
     <!-- Main Game Content Container -->
     {#if hudElements.gameContent.visible}
-      <div class="hud-element game-content" in:fade={{ duration: 800, delay: 200 }}>
+      <div class="hud-element game-content visible-content" in:fade={{ duration: 800, delay: 200 }}>
         <div class="game-frame">
-    
           <!-- Game content -->
           <div class="game-interface">
-                <!-- Frame corner decorations -->
-                <div class="frame-corner top-left"></div>
-                <div class="frame-corner top-right"></div>
-                <div class="frame-corner bottom-left"></div>
-                <div class="frame-corner bottom-right"></div>
-                
-                <!-- Timer display -->
-                <div class="timer-container">
-                    <div class="timer-label">TIME REMAINING</div>
-                    <div class="timer-display">
-                      <span class="time-unit">{formatTimeUnit(timeRemaining.hours)}</span>
-                      <span class="time-separator">:</span>
-                      <span class="time-unit">{formatTimeUnit(timeRemaining.minutes)}</span>
-                      <span class="time-separator">:</span>
-                      <span class="time-unit">{formatTimeUnit(timeRemaining.seconds)}</span>
-                    </div>
-                  </div>
-            <!-- Prize pool display -->
-            <div class="prize-container">
-              <div class="prize-label">PRIZE POOL</div>
-              <div class="prize-value">{prizePool}</div>
-              <div class="prize-subtitle">CURRENT LEADER: {lastBuyer}</div>
-            </div>
+            <!-- Frame corner decorations -->
+            <div class="frame-corner top-left"></div>
+            <div class="frame-corner top-right"></div>
+            <div class="frame-corner bottom-left"></div>
+            <div class="frame-corner bottom-right"></div>
             
-
-                 
-            <!-- Player stats -->
-            <div class="player-stats">
-                <div class="stat-item">
-                  <div class="stat-label">YOUR TOKENS</div>
-                  <div class="stat-value">{playerTokens}</div>
-                </div>
-                <div class="stat-item">
-                  <div class="stat-label">NETWORK</div>
-                  <div class="stat-value">ETHEREUM</div>
-                </div>
+            <!-- Timer display -->
+            <div class="timer-container">
+              <div class="timer-label">TIME REMAINING</div>
+              <div class="timer-display">
+                <span class="time-unit">{formatTimeUnit(timeRemaining.hours)}</span>
+                <span class="time-separator">:</span>
+                <span class="time-unit">{formatTimeUnit(timeRemaining.minutes)}</span>
+                <span class="time-separator">:</span>
+                <span class="time-unit">{formatTimeUnit(timeRemaining.seconds)}</span>
               </div>
+            </div>
+        
+            <!-- Prize container -->
+            <div class="prize-container">
+              <div class="prize-subtitle">{isCurrentUser(gameData.lastBuyer) ? "YOU" : shortenAddress(gameData.lastBuyer)} will win</div>
+              <div class="prize-value">{formattedPrizePool}</div>
+     
+            </div>
+          
             <!-- Main button -->
             <div class="button-container">
               <button class="mega-button" on:click={clickButton}>
                 <div class="button-pulse"></div>
                 <div class="button-content">
-                  <span class="button-primary-text">Claim Your Bag</span>
+                  <div class="prize-subtitle warning">unless you</div>
+                  <span class="button-primary-text">TAKE HIS PLACE</span>
                   <span class="button-secondary-text">CURRENT PRICE: {buttonPrice}</span>
                 </div>
               </button>
+            </div>
+              
+            <!-- Player stats -->
+            <div class="player-stats">
+              <div class="stat-item">
+                <div class="stat-label">YOUR TOKENS</div>
+                <div class="stat-value">{playerState.tokenBalance || playerTokens}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">NETWORK</div>
+                <div class="stat-value">ETHEREUM</div>
+              </div>
             </div>
 
           </div>
@@ -1056,8 +1311,8 @@
   .anxiety-toggle {
     position: fixed;
     top: 15px;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 60%;
+    transform: translateX(-60%);
     z-index: 50;
     pointer-events: auto;
   }
@@ -1101,21 +1356,7 @@
   .anxiety-button:hover .anxiety-icon {
     transform: scale(1.1);
   }
-  
-  /* Shake animation for anxiety mode */
-  @keyframes shake {
-    0%, 100% { transform: translate(0, 0) rotate(0); }
-    10%, 90% { transform: translate(-1px, 0) rotate(-0.5deg); }
-    20%, 80% { transform: translate(1px, 1px) rotate(0.5deg); }
-    30%, 70% { transform: translate(-1px, -1px) rotate(-0.5deg); }
-    40%, 60% { transform: translate(1px, 0) rotate(0.5deg); }
-    50% { transform: translate(-1px, 1px) rotate(-0.5deg); }
-  }
-  
-  .shake {
-    animation: shake 0.5s infinite;
-    animation-timing-function: cubic-bezier(.36,.07,.19,.97);
-  }
+ 
   
   /* Mobile adjustments for anxiety button */
   @media (max-width: 768px) {
@@ -1795,7 +2036,7 @@
     .nav-options {
       position: fixed;
       bottom: 5px;
-      left: 0;
+      left: 50%;
       width: 100%;
       justify-content: center;
       padding: 5px 0;
@@ -2048,27 +2289,31 @@
   
   /* Game Content Styles */
   .game-content {
-    position: fixed;
-    top: 120px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: calc(100% - 600px);
-    height: calc(100% - 240px);
-    z-index: 5;
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 500px !important;
+    height: 500px !important;
+    z-index: 1000 !important;
+    pointer-events: auto !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
   }
   
   .game-frame {
-    width: 100%;
-    height: 95%;
-    position: relative;
-    border-radius: 12px;
-    background-color: rgba(0, 0, 20, 0.4);
-    backdrop-filter: blur(1px);
-    padding: 20px;box-sizing: border-box;
-    box-sizing: border-box;
-    border: 1px solid rgba(0, 255, 255, 0.3);
-    box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
-    overflow: hidden;
+    width: 100% !important;
+    height: 100% !important;
+    position: relative !important;
+    border-radius: 12px !important;
+    background-color: rgba(0, 0, 20, 0.8) !important;
+    padding: 20px !important;
+    box-sizing: border-box !important;
+    border: 1px solid rgba(0, 255, 255, 0.5) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.5) !important;
+    overflow: hidden !important;
+    display: block !important;
   }
   
   .frame-corner {
@@ -2903,14 +3148,16 @@
   
   /* Game Interface Elements */
   .game-interface {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: center;
-    height: 100%;
-    width: 100%;
-    padding: 20px;box-sizing: border-box;
-    position: relative;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    height: 100% !important;
+    width: 100% !important;
+    padding: 20px !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+    z-index: 10 !important;
   }
   
   /* Prize Pool */
@@ -2931,17 +3178,29 @@
   }
   
   .prize-value {
-    font-size: 42px;
+    font-size: 40px;
     font-weight: bold;
     color: #00FFFF;
-    text-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
-    margin-bottom: 5px;
+    text-shadow: 0 0 15px rgba(0, 255, 255, 0.9);
+    margin-bottom: 10px;
     letter-spacing: 1px;
   }
   
   .prize-subtitle {
-    font-size: 14px;
-    color: rgba(0, 255, 255, 0.6);
+    font-size: 18px;
+    color: rgba(0, 255, 255, 0.9);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    font-weight: bold;
+  }
+  
+  .prize-subtitle.warning {
+    color: #FF0055;
+    text-shadow: 0 0 10px rgba(255, 0, 85, 0.7);
+    font-size: 20px;
+    margin-top: 5px;
+    text-transform: uppercase;
+    font-weight: bold;
   }
   
   /* Mega Button */
@@ -2957,14 +3216,14 @@
     width: 100%;
     height: 100px;
     background-color: rgba(0, 50, 100, 0.4);
-    border: 2px solid #00FFFF;
+    border: 2px solid #FF0055;
     cursor: pointer;
     padding: 20px;
     transition: all 0.3s ease;
     overflow: hidden;
     font-family: 'Courier New', monospace;
     z-index: 1;
-    box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+    box-shadow: 0 0 20px rgba(255, 0, 85, 0.5);
   }
   
   .mega-button:before {
@@ -2988,7 +3247,7 @@
     height: 150%;
     background: radial-gradient(
       circle,
-      rgba(0, 255, 255, 0.5) 0%,
+      rgba(255, 0, 85, 0.5) 0%,
       transparent 70%
     );
     opacity: 0;
@@ -3013,12 +3272,13 @@
   }
   
   .button-primary-text {
-    font-size: 22px;
+    font-size: 26px;
     font-weight: bold;
-    color: #00FFFF;
-    text-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
-    margin-bottom: 10px;
-    letter-spacing: 2px;
+    color: #FF0055;
+    text-shadow: 0 0 15px rgba(255, 0, 85, 0.8);
+    margin-bottom: 5px;
+    display: block;
+    letter-spacing: 1px;
   }
   
   .button-secondary-text {
@@ -3027,8 +3287,8 @@
   }
   
   .mega-button:hover {
-    background-color: rgba(0, 100, 200, 0.4);
-    box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+    background-color: rgba(0, 70, 140, 0.6);
+    box-shadow: 0 0 30px rgba(255, 0, 85, 0.7);
     transform: scale(1.02);
   }
   
@@ -3041,7 +3301,7 @@
   .player-stats {
     display: flex;
     justify-content: flex-start;
-    width: 50%;
+    width: 100%;
     gap: 20px;
     margin-bottom: 15px;
   }
@@ -3156,5 +3416,41 @@
   
   .chat-send:hover {
     background-color: rgba(0, 255, 255, 0.2);
+  }
+
+  .prize-subtitle.warning {
+    color: #FF0055;
+    text-shadow: 0 0 10px rgba(255, 0, 85, 0.7);
+    font-size: 16px;
+    margin-top: 5px;
+    text-transform: uppercase;
+    font-weight: bold;
+  }
+
+  .hud-section-title {
+    font-size: 18px;
+    color: #00FFFF;
+    font-weight: bold;
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.9);
+    margin-bottom: 10px;
+    letter-spacing: 1px;
+  }
+  
+  .profit {
+    color: #00FF80;
+    text-shadow: 0 0 5px rgba(0, 255, 128, 0.7);
+    font-weight: bold;
+  }
+  
+  .loss {
+    color: #FF0055;
+    text-shadow: 0 0 5px rgba(255, 0, 85, 0.7);
+    font-weight: bold;
+  }
+  
+  .visible-content {
+
+    opacity: 1 !important;
+    z-index: 100 !important;
   }
 </style> 

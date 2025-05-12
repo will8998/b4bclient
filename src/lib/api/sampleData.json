@@ -1,0 +1,177 @@
+{
+  "api": {
+    "endpoints": {
+      "gameState": "/api/game-state",
+      "playerData": "/api/player/{address}",
+      "buyTransaction": "/api/buy",
+      "chat": "/api/chat"
+    },
+    "responses": {
+      "gameState": {
+        "prizePool": "10000000.00",
+        "consolationPrizePool": "1000000.00",
+        "timeRemaining": {
+          "hours": 23,
+          "minutes": 45,
+          "seconds": 12
+        },
+        "lastBuyer": "0x1234567890123456789012345678901234567890",
+        "totalParticipants": 427,
+        "currentPrice": "1000.00",
+        "recentBuys": [
+          {
+            "address": "0x1234567890123456789012345678901234567890",
+            "amount": "1.50",
+            "timestamp": 1689475832000
+          },
+          {
+            "address": "0x2345678901234567890123456789012345678901",
+            "amount": "1.25",
+            "timestamp": 1689475632000
+          },
+          {
+            "address": "0x3456789012345678901234567890123456789012",
+            "amount": "2.00",
+            "timestamp": 1689474632000
+          }
+        ]
+      },
+      "playerData": {
+        "address": "0x1234567890123456789012345678901234567890",
+        "isConnected": true,
+        "tokenBalance": "0.75",
+        "amountSpent": "1500.00",
+        "isCurrentLeader": true,
+        "shareOfConsolation": "25000.00",
+        "sharePercentage": "2.5%",
+        "profit": "8500000.00",
+        "isInProfit": true
+      },
+      "buyTransaction": {
+        "success": true,
+        "transactionHash": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+        "gameData": {
+          "prizePool": "10001000.00",
+          "timeRemaining": {
+            "hours": 23,
+            "minutes": 59,
+            "seconds": 59
+          },
+          "lastBuyer": "0x1234567890123456789012345678901234567890"
+        },
+        "playerData": {
+          "address": "0x1234567890123456789012345678901234567890",
+          "tokenBalance": "0.80",
+          "amountSpent": "2500.00",
+          "isCurrentLeader": true,
+          "shareOfConsolation": "25000.00",
+          "sharePercentage": "2.5%",
+          "profit": "8499000.00",
+          "isInProfit": true
+        }
+      }
+    }
+  },
+  "websocket": {
+    "messages": {
+      "gameUpdate": {
+        "type": "game_update",
+        "gameData": {
+          "prizePool": "10005000.00",
+          "timeRemaining": {
+            "hours": 23,
+            "minutes": 45,
+            "seconds": 12
+          },
+          "lastBuyer": "0x2345678901234567890123456789012345678901",
+          "currentPrice": "1000.00"
+        }
+      },
+      "playerUpdate": {
+        "type": "player_update",
+        "address": "0x1234567890123456789012345678901234567890",
+        "playerData": {
+          "tokenBalance": "0.80",
+          "amountSpent": "2500.00",
+          "isCurrentLeader": false,
+          "shareOfConsolation": "27500.00",
+          "sharePercentage": "2.75%",
+          "profit": "-2300.00",
+          "isInProfit": false
+        }
+      },
+      "newBuy": {
+        "type": "new_buy",
+        "buyData": {
+          "address": "0x2345678901234567890123456789012345678901",
+          "amount": "1.00",
+          "timestamp": 1689476832000
+        }
+      },
+      "chatMessage": {
+        "type": "chat_message",
+        "chatData": {
+          "sender": "0x2345678901234567890123456789012345678901",
+          "message": "Just bought in! Let's go!",
+          "timestamp": 1689476835000
+        }
+      }
+    },
+    "subscriptions": {
+      "subscribe": {
+        "action": "subscribe",
+        "address": "0x1234567890123456789012345678901234567890"
+      },
+      "unsubscribe": {
+        "action": "unsubscribe",
+        "address": "0x1234567890123456789012345678901234567890"
+      }
+    }
+  },
+  "player": {
+    "states": {
+      "notBought": {
+        "address": "0x1234567890123456789012345678901234567890",
+        "isConnected": true,
+        "tokenBalance": "0.00",
+        "amountSpent": "0.00",
+        "isCurrentLeader": false,
+        "shareOfConsolation": "0.00",
+        "sharePercentage": "0%",
+        "profit": "0.00",
+        "isInProfit": false
+      },
+      "winning": {
+        "address": "0x1234567890123456789012345678901234567890",
+        "isConnected": true,
+        "tokenBalance": "0.50",
+        "amountSpent": "1000.00",
+        "isCurrentLeader": true,
+        "shareOfConsolation": "0.00",
+        "sharePercentage": "0%",
+        "profit": "9999000.00",
+        "isInProfit": true
+      },
+      "losing": {
+        "address": "0x1234567890123456789012345678901234567890",
+        "isConnected": true,
+        "tokenBalance": "0.50",
+        "amountSpent": "1000.00",
+        "isCurrentLeader": false,
+        "shareOfConsolation": "25000.00", 
+        "sharePercentage": "2.5%",
+        "profit": "-975000.00",
+        "isInProfit": false
+      }
+    }
+  },
+  "gameSettings": {
+    "initialTimerHours": 24,
+    "initialPrice": "1000.00",
+    "initialPrizePool": "10000000.00",
+    "initialConsolationPool": "1000000.00",
+    "prizePoolPercent": 75,
+    "consolationPoolPercent": 25,
+    "tokenPerPurchase": 0.05
+  }
+} 
